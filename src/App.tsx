@@ -7,6 +7,7 @@ import {
   useAuth,
 } from "@clerk/clerk-react";
 import { addPlant, deletePlant, listPlants, type Plant } from "./api";
+import PlantInfo from "./PlantInfo";
 
 function Garden() {
   const { getToken } = useAuth();
@@ -16,6 +17,7 @@ function Garden() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [prefill, setPrefill] = useState({ text: "", n: 0 });
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +58,11 @@ function Garden() {
     }
   }
 
+  function lookup(plantName: string) {
+    setPrefill((p) => ({ text: plantName, n: p.n + 1 }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   const input: React.CSSProperties = {
     display: "block",
     width: "100%",
@@ -67,6 +74,9 @@ function Garden() {
 
   return (
     <>
+      <PlantInfo prefill={prefill} />
+
+      <h2>My garden</h2>
       <form onSubmit={handleAdd} style={{ margin: "16px 0" }}>
         <input
           style={input}
@@ -108,9 +118,10 @@ function Garden() {
             <strong>{p.name}</strong>
             {p.location && <div>{p.location}</div>}
             {p.notes && <div style={{ opacity: 0.8 }}>{p.notes}</div>}
-            <button onClick={() => handleDelete(p.id)} style={{ marginTop: 8 }}>
-              Remove
-            </button>
+            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+              <button onClick={() => lookup(p.name)}>Care info</button>
+              <button onClick={() => handleDelete(p.id)}>Remove</button>
+            </div>
           </li>
         ))}
       </ul>
