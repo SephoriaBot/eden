@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
   const key = process.env.PERENUAL_API_KEY;
-  if (!key) return res.status(500).json({ error: "Server error" });
+  if (!key) return res.status(500).json({ error: "Server error: missing Perenual key" });
 
   try {
     if (!(await underDailyLimit(userId, "search", 60))) {
@@ -45,7 +45,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `${BASE}/species/details/${id}?key=${encodeURIComponent(key)}`,
         { signal: AbortSignal.timeout(8000) }
       );
-      if (!r.ok) return res.status(502).json({ error: "Plant lookup failed" });
+      if (!r.ok) {
+        return res.status(502).json({ error: `Plant lookup failed (Perenual ${r.status})` });
+      }
       const d: any = await r.json();
       return res.status(200).json({
         id: d.id,
@@ -65,7 +67,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `${BASE}/species-list?key=${encodeURIComponent(key)}&q=${encodeURIComponent(q)}`,
       { signal: AbortSignal.timeout(8000) }
     );
-    if (!r.ok) return res.status(502).json({ error: "Plant search failed" });
+    if (!r.ok) {
+      return res.status(502).json({ error: `Plant search failed (Perenual ${r.status})` });
+    }
     const data: any = await r.json();
     const results = (Array.isArray(data.data) ? data.data : [])
       .slice(0, 8)
@@ -76,6 +80,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }));
     return res.status(200).json(results);
   } catch {
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error: could not reach Perenual" });
   }
 }
