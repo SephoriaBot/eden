@@ -1,0 +1,49 @@
+export type Plant = {
+  id: string;
+  name: string;
+  location: string | null;
+  notes: string | null;
+  createdAt: number;
+};
+
+type GetToken = () => Promise<string | null>;
+
+async function request(getToken: GetToken, path: string, init: RequestInit = {}) {
+  const token = await getToken();
+  if (!token) throw new Error("Not signed in");
+
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Request failed");
+  }
+  return res;
+}
+
+export async function listPlants(getToken: GetToken): Promise<Plant[]> {
+  const res = await request(getToken, "/api/plants");
+  return res.json();
+}
+
+export async function addPlant(
+  getToken: GetToken,
+  plant: { name: string; location: string; notes: string }
+): Promise<Plant> {
+  const res = await request(getToken, "/api/plants", {
+    method: "POST",
+    body: JSON.stringify(plant),
+  });
+  return res.json();
+}
+
+export async function deletePlant(getToken: GetToken, id: string): Promise<void> {
+  await request(getToken, `/api/plants?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
