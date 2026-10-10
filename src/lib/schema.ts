@@ -1,4 +1,10 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  index,
+  primaryKey,
+} from "drizzle-orm/sqlite-core";
 
 export const plants = sqliteTable(
   "plants",
@@ -12,5 +18,17 @@ export const plants = sqliteTable(
   },
   (t) => ({
     userIdx: index("plants_user_idx").on(t.userId),
+  })
+);
+
+export const aiUsage = sqliteTable(
+  "ai_usage",
+  {
+    userId: text("user_id").notNull(),
+    day: text("day").notNull(),
+    count: integer("count").notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.day] }),
   })
 );
