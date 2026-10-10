@@ -6,6 +6,20 @@ export type Plant = {
   createdAt: number;
 };
 
+export type PlantSearchResult = {
+  id: number;
+  commonName: string | null;
+  scientificName: string | null;
+};
+
+export type PlantDetails = PlantSearchResult & {
+  watering: string | null;
+  sunlight: string[] | null;
+  cycle: string | null;
+  careLevel: string | null;
+  description: string | null;
+};
+
 type GetToken = () => Promise<string | null>;
 
 async function request(getToken: GetToken, path: string, init: RequestInit = {}) {
@@ -46,4 +60,33 @@ export async function deletePlant(getToken: GetToken, id: string): Promise<void>
   await request(getToken, `/api/plants?id=${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+export async function searchPlants(
+  getToken: GetToken,
+  q: string
+): Promise<PlantSearchResult[]> {
+  const res = await request(getToken, `/api/plant-search?q=${encodeURIComponent(q)}`);
+  return res.json();
+}
+
+export async function getPlantDetails(
+  getToken: GetToken,
+  id: number
+): Promise<PlantDetails> {
+  const res = await request(getToken, `/api/plant-search?id=${id}`);
+  return res.json();
+}
+
+export async function askGuide(
+  getToken: GetToken,
+  plant: string,
+  question: string
+): Promise<string> {
+  const res = await request(getToken, "/api/plant-guide", {
+    method: "POST",
+    body: JSON.stringify({ plant, question }),
+  });
+  const data = await res.json();
+  return data.text;
 }
