@@ -43,15 +43,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         temperature: 0.3,
-        max_tokens: 600,
+        reasoning_effort: "low",
+        max_completion_tokens: 1500,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage },
         ],
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!r.ok) {
@@ -59,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const data: any = await r.json();
     const text = data?.choices?.[0]?.message?.content;
-    if (typeof text !== "string") {
+    if (typeof text !== "string" || !text.trim()) {
       return res.status(502).json({ error: "Plant guide unavailable (empty reply)" });
     }
     return res.status(200).json({ text });
