@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserId } from "../lib/auth.js";
-import { underDailyLimit } from "../lib/limits.js";
+import { getUserId } from "../src/lib/auth.js";
+import { underDailyLimit } from "../src/lib/limits.js";
 
 const BASE = "https://perenual.com/api/v2";
 
