@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, count, desc, eq } from "drizzle-orm";
-import { db } from "../lib/db.js";
-import { plants } from "../lib/schema.js";
-import { getUserId } from "../lib/auth.js";
+import { db } from "../src/lib/db.js";
+import { plants } from "../src/lib/schema.js";
+import { getUserId } from "../src/lib/auth.js";
 
 const MAX_PLANTS_PER_USER = 100;
 
