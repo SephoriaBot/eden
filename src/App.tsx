@@ -8,6 +8,7 @@ import {
 } from "@clerk/clerk-react";
 import { addPlant, deletePlant, listPlants, type Plant } from "./api";
 import PlantInfo from "./PlantInfo";
+import GardenSummary from "./GardenSummary";
 
 function tone(id: string) {
   let sum = 0;
@@ -116,6 +117,8 @@ function Garden() {
           <p>Your garden is waiting. Add your first plant above.</p>
         </div>
       )}
+
+      {!loading && plants.length > 0 && <GardenSummary plantCount={plants.length} />}
 
       <ul className="plant-list">
         {plants.map((p) => (
