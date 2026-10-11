@@ -9,6 +9,12 @@ import {
 import { addPlant, deletePlant, listPlants, type Plant } from "./api";
 import PlantInfo from "./PlantInfo";
 
+function tone(id: string) {
+  let sum = 0;
+  for (const ch of id) sum += ch.charCodeAt(0);
+  return `av${sum % 4}`;
+}
+
 function Garden() {
   const { getToken } = useAuth();
   const [plants, setPlants] = useState<Plant[]>([]);
@@ -49,7 +55,8 @@ function Garden() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, plantName: string) {
+    if (!window.confirm(`Remove ${plantName} from your garden?`)) return;
     try {
       await deletePlant(getToken, id);
       setPlants((prev) => prev.filter((p) => p.id !== id));
@@ -63,64 +70,72 @@ function Garden() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const input: React.CSSProperties = {
-    display: "block",
-    width: "100%",
-    boxSizing: "border-box",
-    padding: 10,
-    marginBottom: 8,
-    fontSize: 16,
-  };
-
   return (
     <>
       <PlantInfo prefill={prefill} />
 
-      <h2>My garden</h2>
-      <form onSubmit={handleAdd} style={{ margin: "16px 0" }}>
-        <input
-          style={input}
-          placeholder="Plant name"
-          value={name}
-          maxLength={80}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          style={input}
-          placeholder="Location (e.g. kitchen window)"
-          value={location}
-          maxLength={80}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-        <textarea
-          style={input}
-          placeholder="Notes"
-          value={notes}
-          maxLength={500}
-          rows={3}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-        <button type="submit" style={{ padding: "10px 16px", fontSize: 16 }}>
-          Add plant
-        </button>
-      </form>
+      <section className="card">
+        <h2>Add a plant</h2>
+        <form onSubmit={handleAdd}>
+          <input
+            className="field"
+            placeholder="Plant name"
+            value={name}
+            maxLength={80}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            className="field"
+            placeholder="Location (e.g. kitchen window)"
+            value={location}
+            maxLength={80}
+            onChange={(e) => setLocation(e.target.value)}
+          />
+          <textarea
+            className="field"
+            placeholder="Notes"
+            value={notes}
+            maxLength={500}
+            rows={3}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+          <button className="btn" type="submit" disabled={!name.trim()}>
+            Add to my garden
+          </button>
+        </form>
+      </section>
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-      {loading && <p>Loading your garden...</p>}
-      {!loading && plants.length === 0 && <p>No plants yet. Add your first one above.</p>}
+      <h2 className="section-title">My garden</h2>
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      {error && <div className="error">{error}</div>}
+      {loading && <p className="hint">Loading your garden...</p>}
+
+      {!loading && plants.length === 0 && (
+        <div className="card empty">
+          <div className="plant-avatar av1 face-lg" />
+          <p>Your garden is waiting. Add your first plant above.</p>
+        </div>
+      )}
+
+      <ul className="plant-list">
         {plants.map((p) => (
-          <li
-            key={p.id}
-            style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 8 }}
-          >
-            <strong>{p.name}</strong>
-            {p.location && <div>{p.location}</div>}
-            {p.notes && <div style={{ opacity: 0.8 }}>{p.notes}</div>}
-            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-              <button onClick={() => lookup(p.name)}>Care info</button>
-              <button onClick={() => handleDelete(p.id)}>Remove</button>
+          <li key={p.id} className="plant-card">
+            <div className={`plant-avatar ${tone(p.id)}`} />
+            <div className="plant-body">
+              <div className="plant-name">{p.name}</div>
+              {p.location && <span className="badge">{p.location}</span>}
+              {p.notes && <div className="plant-notes">{p.notes}</div>}
+              <div className="actions">
+                <button className="btn-soft" onClick={() => lookup(p.name)}>
+                  Care info
+                </button>
+                <button
+                  className="btn-soft btn-danger"
+                  onClick={() => handleDelete(p.id, p.name)}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           </li>
         ))}
@@ -131,16 +146,27 @@ function Garden() {
 
 export default function App() {
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 24 }}>
-      <h1>Eden</h1>
+    <main className="app">
+      <header className="header">
+        <h1 className="brand">Eden</h1>
+        <SignedIn>
+          <UserButton />
+        </SignedIn>
+      </header>
+      <p className="tagline">Your little garden journal and plant guide</p>
 
       <SignedOut>
-        <p>Sign in to start your garden.</p>
-        <SignInButton mode="modal" />
+        <div className="card welcome">
+          <div className="plant-avatar av0 face-lg" />
+          <h2>Welcome to Eden</h2>
+          <p>Sign in to start your garden.</p>
+          <SignInButton mode="modal">
+            <button className="btn">Sign in</button>
+          </SignInButton>
+        </div>
       </SignedOut>
 
       <SignedIn>
-        <UserButton />
         <Garden />
       </SignedIn>
     </main>
