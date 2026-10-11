@@ -19,6 +19,7 @@ export default function PlantInfo({
   const [details, setDetails] = useState<PlantDetails | null>(null);
   const [question, setQuestion] = useState("");
   const [guide, setGuide] = useState("");
+  const [autoGuide, setAutoGuide] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -29,10 +30,28 @@ export default function PlantInfo({
     setError("");
     setDetails(null);
     setGuide("");
+    setAutoGuide(false);
+    setResults(null);
+
+    let found: PlantSearchResult[] = [];
     try {
-      setResults(await searchPlants(getToken, q));
+      found = await searchPlants(getToken, q);
+    } catch {
+      found = [];
+    }
+
+    if (found.length > 0) {
+      setResults(found);
+      setBusy("");
+      return;
+    }
+
+    // Nothing in the database (or it failed): let the AI guide answer instead.
+    setBusy("guide");
+    try {
+      setGuide(await askGuide(getToken, q, ""));
+      setAutoGuide(true);
     } catch (e) {
-      setResults(null);
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setBusy("");
@@ -64,6 +83,7 @@ export default function PlantInfo({
     if (!plant) return;
     setBusy("guide");
     setError("");
+    setAutoGuide(false);
     try {
       setGuide(await askGuide(getToken, plant, question));
     } catch (e) {
@@ -109,9 +129,6 @@ export default function PlantInfo({
 
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-      {results && results.length === 0 && (
-        <p>Nothing found in the plant database. Try the AI guide below.</p>
-      )}
       {results && results.length > 0 && (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {results.map((r) => (
@@ -143,6 +160,11 @@ export default function PlantInfo({
 
       <hr style={{ margin: "16px 0" }} />
       <h3 style={{ marginTop: 0 }}>AI plant guide</h3>
+      {autoGuide && (
+        <p style={{ fontSize: 14, opacity: 0.8 }}>
+          Not in the plant database, so here's the AI guide's answer.
+        </p>
+      )}
       <input
         style={input}
         placeholder="Optional question (e.g. why are the leaves yellow?)"
