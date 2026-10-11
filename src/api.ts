@@ -77,3 +77,9 @@ export async function getTroubleshooting(
   const data = await res.json();
   return data.sections;
 }
+
+export async function getGardenSummary(getToken: GetToken): Promise<GuideSection[]> {
+  const res = await request(getToken, "/api/garden-summary", { method: "POST" });
+  const data = await res.json();
+  return data.sections;
+}
