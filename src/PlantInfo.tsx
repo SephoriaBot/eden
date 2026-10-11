@@ -8,6 +8,50 @@ import {
   type PlantSearchResult,
 } from "./api";
 
+const SECTION_TITLES = [
+  "Overview",
+  "Light",
+  "Watering",
+  "Soil and Containers",
+  "Temperature and Humidity",
+  "Feeding",
+  "Pruning and Maintenance",
+  "Common Problems",
+  "Pet Safety",
+  "Quick Tip",
+  "Also worth knowing",
+];
+
+function GuideText({ text }: { text: string }) {
+  const blocks: { title: string | null; lines: string[] }[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const title = SECTION_TITLES.find(
+      (t) => line.replace(/[:*#]/g, "").trim().toLowerCase() === t.toLowerCase()
+    );
+    if (title) {
+      blocks.push({ title, lines: [] });
+    } else {
+      if (blocks.length === 0) blocks.push({ title: null, lines: [] });
+      blocks[blocks.length - 1].lines.push(line);
+    }
+  }
+
+  return (
+    <div className="guide">
+      {blocks.map((b, i) => (
+        <div key={i} className={b.title === "Pet Safety" ? "pet" : undefined}>
+          {b.title && <h4>{b.title}</h4>}
+          {b.lines.map((l, j) => (
+            <p key={j}>{l}</p>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function PlantInfo({
   prefill,
 }: {
@@ -93,97 +137,90 @@ export default function PlantInfo({
     }
   }
 
-  const box: React.CSSProperties = {
-    border: "1px solid #ccc",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  };
-  const input: React.CSSProperties = {
-    display: "block",
-    width: "100%",
-    boxSizing: "border-box",
-    padding: 10,
-    marginBottom: 8,
-    fontSize: 16,
-  };
-
   return (
-    <section style={box}>
-      <h2 style={{ marginTop: 0 }}>Plant info</h2>
+    <section className="card">
+      <h2>Plant info</h2>
 
       <input
-        style={input}
+        className="field"
         placeholder="Search a plant (e.g. rose, pothos)"
         value={query}
         maxLength={60}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") search(query);
+        }}
       />
       <button
+        className="btn"
         onClick={() => search(query)}
         disabled={busy !== "" || !query.trim()}
-        style={{ padding: "10px 16px", fontSize: 16 }}
       >
         {busy === "search" ? "Searching..." : "Search"}
       </button>
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <div className="error">{error}</div>}
 
       {results && results.length > 0 && (
-        <ul style={{ listStyle: "none", padding: 0 }}>
+        <ul className="results">
           {results.map((r) => (
-            <li key={r.id} style={{ marginBottom: 6 }}>
-              <button
-                onClick={() => pick(r.id)}
-                style={{ width: "100%", textAlign: "left", padding: 10, fontSize: 16 }}
-              >
+            <li key={r.id}>
+              <button className="result-btn" onClick={() => pick(r.id)}>
                 {r.commonName || "Unnamed plant"}
-                {r.scientificName ? ` (${r.scientificName})` : ""}
+                {r.scientificName && <em> ({r.scientificName})</em>}
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      {busy === "details" && <p>Loading...</p>}
+      {busy === "details" && <p className="hint">Loading...</p>}
       {details && (
-        <div style={{ margin: "12px 0" }}>
-          <strong>{details.commonName || "Plant"}</strong>
-          {details.scientificName && <div><em>{details.scientificName}</em></div>}
-          {details.watering && <div>Watering: {details.watering}</div>}
-          {details.sunlight && <div>Sunlight: {details.sunlight.join(", ")}</div>}
-          {details.cycle && <div>Life cycle: {details.cycle}</div>}
-          {details.careLevel && <div>Care level: {details.careLevel}</div>}
+        <div className="details">
+          <h3>{details.commonName || "Plant"}</h3>
+          {details.scientificName && <em>{details.scientificName}</em>}
+          <div className="chips">
+            {details.watering && (
+              <span className="chip chip-water">Water: {details.watering}</span>
+            )}
+            {details.sunlight && (
+              <span className="chip chip-sun">Sun: {details.sunlight.join(", ")}</span>
+            )}
+            {details.cycle && (
+              <span className="chip chip-cycle">Cycle: {details.cycle}</span>
+            )}
+            {details.careLevel && (
+              <span className="chip chip-care">Care: {details.careLevel}</span>
+            )}
+          </div>
           {details.description && <p>{details.description}</p>}
         </div>
       )}
 
-      <hr style={{ margin: "16px 0" }} />
-      <h3 style={{ marginTop: 0 }}>AI plant guide</h3>
+      <hr className="divider" />
+
+      <h3>AI plant guide</h3>
       {autoGuide && (
-        <p style={{ fontSize: 14, opacity: 0.8 }}>
-          Not in the plant database, so here's the AI guide's answer.
-        </p>
+        <p className="hint">Not in the plant database, so here's the AI guide's answer.</p>
       )}
       <input
-        style={input}
+        className="field"
         placeholder="Optional question (e.g. why are the leaves yellow?)"
         value={question}
         maxLength={300}
         onChange={(e) => setQuestion(e.target.value)}
       />
       <button
+        className="btn"
         onClick={ask}
         disabled={busy !== "" || !(details?.commonName || query.trim())}
-        style={{ padding: "10px 16px", fontSize: 16 }}
       >
         {busy === "guide" ? "Thinking..." : "Ask the guide"}
       </button>
-      {guide && <p style={{ whiteSpace: "pre-wrap" }}>{guide}</p>}
+
+      {guide && <GuideText text={guide} />}
       {guide && (
-        <p style={{ fontSize: 13, opacity: 0.7 }}>
-          AI-generated, so double-check anything important.
-        </p>
+        <p className="hint">AI-generated, so double-check anything important.</p>
       )}
     </section>
   );
