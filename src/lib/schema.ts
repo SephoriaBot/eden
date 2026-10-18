@@ -32,3 +32,11 @@ export const aiUsage = sqliteTable(
     pk: primaryKey({ columns: [t.userId, t.day] }),
   })
 );
+
+export const plantGuides = sqliteTable("plant_guides", {
+  slug: text("slug").primaryKey(),
+  name: text("name").notNull(),
+  sections: text("sections").notNull(),
+  source: text("source").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
