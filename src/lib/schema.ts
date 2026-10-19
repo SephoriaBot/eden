@@ -1,3 +1,4 @@
+
 import {
   sqliteTable,
   text,
@@ -14,6 +15,7 @@ export const plants = sqliteTable(
     name: text("name").notNull(),
     location: text("location"),
     notes: text("notes"),
+    category: text("category"),
     createdAt: integer("created_at").notNull(),
   },
   (t) => ({
