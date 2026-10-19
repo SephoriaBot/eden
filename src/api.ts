@@ -1,10 +1,18 @@
 
+export type CareSummary = {
+  overview: string;
+  light: string;
+  watering: string;
+  temperature: string;
+};
+
 export type Plant = {
   id: string;
   name: string;
   location: string | null;
   notes: string | null;
   category: string | null;
+  careSummary: string | null;
   createdAt: number;
 };
 
@@ -48,7 +56,22 @@ export async function addPlant(
     method: "POST",
     body: JSON.stringify(plant),
   });
+  return res.json();
+}
 
+export async function updatePlant(
+  getToken: GetToken,
+  id: string,
+  changes: { name?: string; careSummary?: CareSummary }
+): Promise<Plant> {
+  const res = await request(
+    getToken,
+    `/api/plants?id=${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(changes),
+    }
+  );
   return res.json();
 }
 
@@ -66,7 +89,6 @@ export async function getCareGuide(
     method: "POST",
     body: JSON.stringify({ mode: "care", plant }),
   });
-
   const data = await res.json();
   return data.sections;
 }
@@ -80,7 +102,6 @@ export async function getTroubleshooting(
     method: "POST",
     body: JSON.stringify({ mode: "troubleshoot", plant, problem }),
   });
-
   const data = await res.json();
   return data.sections;
 }
@@ -91,7 +112,6 @@ export async function getGardenSummary(
   const res = await request(getToken, "/api/garden-summary", {
     method: "POST",
   });
-
   const data = await res.json();
   return data.sections;
 }
