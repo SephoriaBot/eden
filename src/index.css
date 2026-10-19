@@ -371,16 +371,16 @@ textarea.field {
   object-fit: contain;
 }
 
-.icon-flowering { background-image: url("/plant-icons/flowering.png"); }
-.icon-foliage { background-image: url("/plant-icons/foliage.png"); }
-.icon-succulent { background-image: url("/plant-icons/succulent.png"); }
-.icon-fern { background-image: url("/plant-icons/fern.png"); }
-.icon-palm { background-image: url("/plant-icons/palm.png"); }
-.icon-herb { background-image: url("/plant-icons/herb.png"); }
-.icon-trailing { background-image: url("/plant-icons/trailing.png"); }
-.icon-cactus { background-image: url("/plant-icons/cactus.png"); }
-.icon-bulb { background-image: url("/plant-icons/bulb.png"); }
-.icon-tropical { background-image: url("/plant-icons/tropical.png"); }
+.icon-flowering { background-image: url("/flowering.png"); }
+.icon-foliage { background-image: url("/foliage.png"); }
+.icon-succulent { background-image: url("/succulent.png"); }
+.icon-fern { background-image: url("/fern.png"); }
+.icon-palm { background-image: url("/palm.png"); }
+.icon-herb { background-image: url("/herb.png"); }
+.icon-trailing { background-image: url("/trailing.png"); }
+.icon-cactus { background-image: url("/cactus.png"); }
+.icon-bulb { background-image: url("/bulb.png"); }
+.icon-tropical { background-image: url("/tropical.png"); }
 
 .face-lg {
   width: 96px;
