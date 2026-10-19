@@ -79,6 +79,7 @@ async function ensureColumns() {
     sql`ALTER TABLE plants ADD COLUMN watering_interval_days INTEGER NOT NULL DEFAULT 7`,
     sql`ALTER TABLE plants ADD COLUMN last_watered_at INTEGER`,
     sql`ALTER TABLE plants ADD COLUMN recommended_watering_interval_days INTEGER`,
+    sql`ALTER TABLE plants ADD COLUMN watering_recommendation_version INTEGER NOT NULL DEFAULT 0`,
   ];
 
   for (const statement of statements) {
@@ -218,8 +219,8 @@ export default async function handler(
         .limit(MAX_PLANTS_PER_USER);
 
       const missing = rows.filter(
-        (plant) => plant.recommendedWateringIntervalDays == null
-      );
+  (plant) => (plant.wateringRecommendationVersion ?? 0) < 1
+);
 
       if (missing.length > 0) {
         const profiles = await getPlantProfiles(
@@ -236,7 +237,7 @@ export default async function handler(
               category: plant.category ?? profile.category,
               recommendedWateringIntervalDays:
                 profile.wateringIntervalDays,
-              wateringIntervalDays: profile.wateringIntervalDays,
+              wateringIntervalDays: profile.wateringIntervalDays, wateringRecommendationVersion: 1,
             })
             .where(and(
               eq(plants.id, plant.id),
@@ -282,7 +283,7 @@ export default async function handler(
         category: profile.category,
         careSummary: null,
         wateringIntervalDays: profile.wateringIntervalDays,
-        recommendedWateringIntervalDays: profile.wateringIntervalDays,
+        recommendedWateringIntervalDays: profile.wateringIntervalDays, wateringRecommendationVersion: 1,
         lastWateredAt: null,
         createdAt: Date.now(),
       };
@@ -324,6 +325,7 @@ export default async function handler(
             profile.wateringIntervalDays;
           changes.wateringIntervalDays = profile.wateringIntervalDays;
           changes.careSummary = null;
+          changes.wateringRecommendationVersion = 1;
         }
       }
 
