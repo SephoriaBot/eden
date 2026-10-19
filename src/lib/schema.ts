@@ -16,6 +16,7 @@ export const plants = sqliteTable(
     location: text("location"),
     notes: text("notes"),
     category: text("category"),
+    careSummary: text("care_summary"),
     createdAt: integer("created_at").notNull(),
   },
   (t) => ({
