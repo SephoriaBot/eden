@@ -1,6 +1,12 @@
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { getCareGuide, getTroubleshooting, type GuideSection } from "./api";
+import {
+  getCareGuide,
+  getTroubleshooting,
+  type CareSummary,
+  type GuideSection,
+} from "./api";
 import "./guide.css";
 
 const SYMPTOMS = [
@@ -16,40 +22,38 @@ const SYMPTOMS = [
 ];
 
 function Body({ text }: { text: string }) {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
   const out: React.ReactNode[] = [];
   let list: string[] = [];
 
   const flush = () => {
     if (list.length) {
-      const items = list;
       out.push(
         <ul key={`u${out.length}`}>
-          {items.map((x, i) => (
-            <li key={i}>{x}</li>
-          ))}
+          {list.map((item, i) => <li key={i}>{item}</li>)}
         </ul>
       );
       list = [];
     }
   };
 
-  for (const l of lines) {
-    if (/^[-•]\s+/.test(l)) {
-      list.push(l.replace(/^[-•]\s+/, ""));
+  for (const line of lines) {
+    if (/^[-•]\s+/.test(line)) {
+      list.push(line.replace(/^[-•]\s+/, ""));
     } else {
       flush();
-      out.push(<p key={`p${out.length}`}>{l}</p>);
+      out.push(<p key={`p${out.length}`}>{line}</p>);
     }
   }
+
   flush();
   return <>{out}</>;
 }
 
-function Viewer({ title, sections }: { title: string; sections: GuideSection[] }) {
+function Viewer({ title, sections }: {
+  title: string;
+  sections: GuideSection[];
+}) {
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -57,18 +61,19 @@ function Viewer({ title, sections }: { title: string; sections: GuideSection[] }
   }, [sections]);
 
   const current = sections[active] ?? sections[0];
+  if (!current) return null;
 
   return (
     <div className="viewer">
       <h3 className="viewer-title">{title}</h3>
       <div className="pills">
-        {sections.map((s, i) => (
+        {sections.map((section, i) => (
           <button
-            key={s.title + i}
+            key={section.title + i}
             className={"pill" + (i === active ? " on" : "")}
             onClick={() => setActive(i)}
           >
-            {s.title}
+            {section.title}
           </button>
         ))}
       </div>
@@ -76,15 +81,30 @@ function Viewer({ title, sections }: { title: string; sections: GuideSection[] }
         <h4>{current.title}</h4>
         <Body text={current.body} />
       </div>
-      <p className="hint">AI-generated, so double-check anything important.</p>
+      <p className="hint">AI-generated. Double-check important care decisions.</p>
     </div>
   );
 }
 
+function makeSummary(sections: GuideSection[]): CareSummary {
+  const find = (title: string) =>
+    sections.find((section) => section.title.toLowerCase() === title.toLowerCase())
+      ?.body.trim().slice(0, 300) ?? "";
+
+  return {
+    overview: find("Overview"),
+    light: find("Light"),
+    watering: find("Watering"),
+    temperature: find("Temperature and Humidity"),
+  };
+}
+
 export default function PlantInfo({
   prefill,
+  onCareSummarySaved,
 }: {
-  prefill: { text: string; n: number };
+  prefill: { text: string; n: number; plantId: string | null };
+  onCareSummarySaved: (plantId: string, summary: CareSummary) => Promise<void>;
 }) {
   const { getToken } = useAuth();
   const [mode, setMode] = useState<"care" | "fix">("care");
@@ -95,16 +115,32 @@ export default function PlantInfo({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function run(kind: "care" | "fix", plantName: string, problemText: string) {
+  async function run(
+    kind: "care" | "fix",
+    plantName: string,
+    problemText: string,
+    plantId: string | null = null
+  ) {
     const p = plantName.trim();
     if (!p) return;
+
     setBusy(true);
     setError("");
     setSections(null);
+
     try {
       if (kind === "care") {
-        setSections(await getCareGuide(getToken, p));
+        const guide = await getCareGuide(getToken, p);
+        setSections(guide);
         setShownTitle(`${p}: care guide`);
+
+        if (plantId) {
+          try {
+            await onCareSummarySaved(plantId, makeSummary(guide));
+          } catch {
+            setError("Guide loaded, but its quick-care details could not be saved.");
+          }
+        }
       } else {
         setSections(await getTroubleshooting(getToken, p, problemText.trim()));
         setShownTitle(`${p}: ${problemText.trim()}`);
@@ -120,7 +156,7 @@ export default function PlantInfo({
     if (prefill.n > 0) {
       setMode("care");
       setPlant(prefill.text);
-      run("care", prefill.text, "");
+      run("care", prefill.text, "", prefill.plantId);
     }
   }, [prefill.n]);
 
@@ -166,26 +202,26 @@ export default function PlantInfo({
           onClick={() => run("care", plant, "")}
           disabled={busy || !plant.trim()}
         >
-          {busy ? "Writing your guide..." : "Get care guide"}
+          {busy ? "Loading guide..." : "Get care guide"}
         </button>
       )}
 
       {mode === "fix" && (
         <>
           <div className="symptoms">
-            {SYMPTOMS.map((s) => (
+            {SYMPTOMS.map((symptom) => (
               <button
-                key={s}
-                className={"symptom" + (problem === s ? " on" : "")}
-                onClick={() => setProblem(s)}
+                key={symptom}
+                className={"symptom" + (problem === symptom ? " on" : "")}
+                onClick={() => setProblem(symptom)}
               >
-                {s}
+                {symptom}
               </button>
             ))}
           </div>
           <textarea
             className="field"
-            placeholder="Describe what's going on (the more detail the better)"
+            placeholder="Describe what's going on"
             value={problem}
             maxLength={300}
             rows={3}
@@ -196,7 +232,7 @@ export default function PlantInfo({
             onClick={() => run("fix", plant, problem)}
             disabled={busy || !plant.trim() || !problem.trim()}
           >
-            {busy ? "Diagnosing..." : "Diagnose"}
+            {busy ? "Checking..." : "Troubleshoot"}
           </button>
         </>
       )}
