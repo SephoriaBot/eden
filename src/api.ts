@@ -13,6 +13,8 @@ export type Plant = {
   notes: string | null;
   category: string | null;
   careSummary: string | null;
+  wateringIntervalDays: number;
+  lastWateredAt: number | null;
   createdAt: number;
 };
 
@@ -23,7 +25,11 @@ export type GuideSection = {
 
 type GetToken = () => Promise<string | null>;
 
-async function request(getToken: GetToken, path: string, init: RequestInit = {}) {
+async function request(
+  getToken: GetToken,
+  path: string,
+  init: RequestInit = {}
+) {
   const token = await getToken();
   if (!token) throw new Error("Not signed in");
 
@@ -62,7 +68,12 @@ export async function addPlant(
 export async function updatePlant(
   getToken: GetToken,
   id: string,
-  changes: { name?: string; careSummary?: CareSummary }
+  changes: {
+    name?: string;
+    careSummary?: CareSummary;
+    wateringIntervalDays?: number;
+    lastWateredAt?: number;
+  }
 ): Promise<Plant> {
   const res = await request(
     getToken,
@@ -75,7 +86,10 @@ export async function updatePlant(
   return res.json();
 }
 
-export async function deletePlant(getToken: GetToken, id: string): Promise<void> {
+export async function deletePlant(
+  getToken: GetToken,
+  id: string
+): Promise<void> {
   await request(getToken, `/api/plants?id=${encodeURIComponent(id)}`, {
     method: "DELETE",
   });

@@ -17,6 +17,10 @@ export const plants = sqliteTable(
     notes: text("notes"),
     category: text("category"),
     careSummary: text("care_summary"),
+    wateringIntervalDays: integer("watering_interval_days")
+      .notNull()
+      .default(7),
+    lastWateredAt: integer("last_watered_at"),
     createdAt: integer("created_at").notNull(),
   },
   (t) => ({

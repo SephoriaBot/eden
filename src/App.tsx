@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   SignedIn,
   SignedOut,
@@ -17,6 +17,7 @@ import {
 } from "./api";
 import PlantInfo from "./PlantInfo";
 import GardenSummary from "./GardenSummary";
+import CareDashboard from "./CareDashboard";
 
 const VALID_CATEGORIES = [
   "flowering", "foliage", "succulent", "fern", "palm",
@@ -25,14 +26,17 @@ const VALID_CATEGORIES = [
 
 function readCareSummary(value: string | null): CareSummary | null {
   if (!value) return null;
+
   try {
     const parsed = JSON.parse(value);
     if (typeof parsed !== "object" || !parsed) return null;
+
     return {
       overview: typeof parsed.overview === "string" ? parsed.overview : "",
       light: typeof parsed.light === "string" ? parsed.light : "",
       watering: typeof parsed.watering === "string" ? parsed.watering : "",
-      temperature: typeof parsed.temperature === "string" ? parsed.temperature : "",
+      temperature:
+        typeof parsed.temperature === "string" ? parsed.temperature : "",
     };
   } catch {
     return null;
@@ -71,7 +75,7 @@ function Garden() {
     load();
   }, [load]);
 
-  async function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -114,6 +118,10 @@ function Garden() {
     setPlants((prev) => prev.map((p) => p.id === id ? updated : p));
   }
 
+  function handlePlantUpdated(updated: Plant) {
+    setPlants((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+  }
+
   async function handleDelete(id: string, plantName: string) {
     if (!window.confirm(`Remove ${plantName} from your garden?`)) return;
 
@@ -147,6 +155,13 @@ function Garden() {
         prefill={prefill}
         onCareSummarySaved={handleSaveCareSummary}
       />
+
+      {!loading && (
+        <CareDashboard
+          plants={plants}
+          onPlantUpdated={handlePlantUpdated}
+        />
+      )}
 
       <section className="card">
         <h2>Add a plant</h2>
@@ -265,14 +280,15 @@ function Garden() {
                   <div className="details">
                     <h3>Quick care</h3>
                     {care.overview && <p>{care.overview}</p>}
-                    {care.light && (
-                      <p><strong>Light:</strong> {care.light}</p>
-                    )}
+                    {care.light && <p><strong>Light:</strong> {care.light}</p>}
                     {care.watering && (
                       <p><strong>Water:</strong> {care.watering}</p>
                     )}
                     {care.temperature && (
-                      <p><strong>Temperature & humidity:</strong> {care.temperature}</p>
+                      <p>
+                        <strong>Temperature & humidity:</strong>{" "}
+                        {care.temperature}
+                      </p>
                     )}
                   </div>
                 )}

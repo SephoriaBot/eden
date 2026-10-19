@@ -25,12 +25,16 @@ function nameKey(name: string): string {
 }
 
 async function ensureColumns() {
-  for (const column of [
+  const statements = [
     sql`ALTER TABLE plants ADD COLUMN category TEXT`,
     sql`ALTER TABLE plants ADD COLUMN care_summary TEXT`,
-  ]) {
+    sql`ALTER TABLE plants ADD COLUMN watering_interval_days INTEGER NOT NULL DEFAULT 7`,
+    sql`ALTER TABLE plants ADD COLUMN last_watered_at INTEGER`,
+  ];
+
+  for (const statement of statements) {
     try {
-      await db.run(column);
+      await db.run(statement);
     } catch (error) {
       const message = (
         error instanceof Error ? error.message : String(error)
@@ -104,7 +108,7 @@ Include every supplied name exactly once.`,
       }
     }
   } catch {
-    // Plant saving still works if classification fails.
+    // Classification is optional.
   }
 
   return result;
@@ -121,7 +125,12 @@ function cleanCareSummary(value: unknown): string | null {
     temperature: cleanText(item.temperature, 300),
   };
 
-  if (!summary.overview && !summary.light && !summary.watering && !summary.temperature) {
+  if (
+    !summary.overview &&
+    !summary.light &&
+    !summary.watering &&
+    !summary.temperature
+  ) {
     return null;
   }
 
@@ -175,7 +184,9 @@ export default async function handler(
     if (req.method === "POST") {
       const body = req.body ?? {};
       const name = cleanText(body.name, 80);
-      if (!name) return res.status(400).json({ error: "Name is required" });
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
 
       const [{ total }] = await db
         .select({ total: count() })
@@ -195,6 +206,8 @@ export default async function handler(
         notes: cleanText(body.notes, 500),
         category: categories.get(nameKey(name)) ?? null,
         careSummary: null,
+        wateringIntervalDays: 7,
+        lastWateredAt: null,
         createdAt: Date.now(),
       };
 
@@ -210,14 +223,18 @@ export default async function handler(
         and(eq(plants.id, id), eq(plants.userId, userId))
       ).limit(1);
 
-      if (!existing) return res.status(404).json({ error: "Plant not found" });
+      if (!existing) {
+        return res.status(404).json({ error: "Plant not found" });
+      }
 
       const body = req.body ?? {};
       const changes: Partial<typeof plants.$inferInsert> = {};
 
       if (typeof body.name === "string") {
         const name = cleanText(body.name, 80);
-        if (!name) return res.status(400).json({ error: "Name is required" });
+        if (!name) {
+          return res.status(400).json({ error: "Name is required" });
+        }
 
         changes.name = name;
 
@@ -234,6 +251,24 @@ export default async function handler(
           return res.status(400).json({ error: "Invalid care summary" });
         }
         changes.careSummary = summary;
+      }
+
+      if (body.wateringIntervalDays !== undefined) {
+        const days = Number(body.wateringIntervalDays);
+        if (!Number.isInteger(days) || days < 1 || days > 90) {
+          return res.status(400).json({
+            error: "Watering interval must be 1–90 days",
+          });
+        }
+        changes.wateringIntervalDays = days;
+      }
+
+      if (body.lastWateredAt !== undefined) {
+        const timestamp = Number(body.lastWateredAt);
+        if (!Number.isFinite(timestamp) || timestamp < 0) {
+          return res.status(400).json({ error: "Invalid watering date" });
+        }
+        changes.lastWateredAt = timestamp;
       }
 
       if (Object.keys(changes).length > 0) {
