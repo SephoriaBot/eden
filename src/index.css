@@ -249,6 +249,9 @@ textarea.field {
 }
 
 .details {
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin-top: 16px;
   padding: 16px;
   background: var(--butter-pale);

@@ -8,20 +8,22 @@ type Props = {
   onPlantUpdated: (plant: Plant) => void;
 };
 
-type Status = "overdue" | "today" | "upcoming";
+type Status = "unwatered" | "overdue" | "today" | "upcoming";
 
 function getInterval(plant: Plant): number {
   return plant.recommendedWateringIntervalDays ?? 7;
 }
 
 function getDueDate(plant: Plant): Date {
-  const lastCareDate = plant.lastWateredAt ?? plant.createdAt;
   return new Date(
-    lastCareDate + getInterval(plant) * 24 * 60 * 60 * 1000
+    plant.lastWateredAt! +
+      getInterval(plant) * 24 * 60 * 60 * 1000
   );
 }
 
 function getStatus(plant: Plant): Status {
+  if (plant.lastWateredAt == null) return "unwatered";
+
   const due = getDueDate(plant);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -41,6 +43,17 @@ function formatDate(date: Date): string {
   });
 }
 
+function formatLastWatered(timestamp: number): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+
+  if (date.toDateString() === today.toDateString()) {
+    return "today";
+  }
+
+  return formatDate(date);
+}
+
 export default function CareDashboard({
   plants,
   onPlantUpdated,
@@ -50,6 +63,7 @@ export default function CareDashboard({
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [message, setMessage] = useState("");
 
+  const unwatered = plants.filter((p) => getStatus(p) === "unwatered");
   const overdue = plants.filter((p) => getStatus(p) === "overdue");
   const dueToday = plants.filter((p) => getStatus(p) === "today");
   const upcoming = plants.filter((p) => getStatus(p) === "upcoming");
@@ -62,7 +76,9 @@ export default function CareDashboard({
       const updated = await updatePlant(getToken, plant.id, {
         lastWateredAt: Date.now(),
       });
+
       onPlantUpdated(updated);
+      setMessage(`${plant.name} marked as watered.`);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -84,6 +100,7 @@ export default function CareDashboard({
       const permission = await Notification.requestPermission();
 
       if (permission === "granted") {
+        window.localStorage.setItem("eden-reminders-setting", "on");
         setRemindersEnabled(true);
         setMessage("Plant reminders are enabled on this device.");
       } else {
@@ -95,11 +112,26 @@ export default function CareDashboard({
     }
   }
 
+  function toggleReminders() {
+  if (remindersEnabled) {
+    setRemindersEnabled(false);
+    window.localStorage.setItem("eden-reminders-setting", "off");
+    setMessage("Plant reminders are off. You can turn them back on here.");
+    return;
+  }
+
+  void enableReminders();
+}
+
   useEffect(() => {
-    if ("Notification" in window) {
-      setRemindersEnabled(Notification.permission === "granted");
-    }
-  }, []);
+  const savedSetting = window.localStorage.getItem("eden-reminders-setting");
+
+  setRemindersEnabled(
+    savedSetting === "off"
+      ? false
+      : "Notification" in window && Notification.permission === "granted"
+  );
+}, []);
 
   useEffect(() => {
     function checkReminders() {
@@ -111,7 +143,11 @@ export default function CareDashboard({
         return;
       }
 
-      const due = plants.filter((plant) => getStatus(plant) !== "upcoming");
+      const due = plants.filter((plant) => {
+        const status = getStatus(plant);
+        return status === "overdue" || status === "today";
+      });
+
       if (due.length === 0) return;
 
       const today = new Date().toLocaleDateString();
@@ -132,7 +168,7 @@ export default function CareDashboard({
 
         window.localStorage.setItem(storageKey, "shown");
       } catch {
-        // Reminders are optional; the dashboard still works without storage.
+        // Reminders are optional.
       }
     }
 
@@ -153,27 +189,40 @@ export default function CareDashboard({
     plant: Plant;
     status: Status;
   }) {
-    const dueDate = getDueDate(plant);
-    const interval = getInterval(plant);
     const isBusy = busyId === plant.id;
+    const interval = getInterval(plant);
+    const dueDate =
+      plant.lastWateredAt != null ? getDueDate(plant) : null;
+
+    let statusText = "Not watered yet";
+
+    if (status === "overdue" && dueDate) {
+      statusText = `Overdue · Due ${formatDate(dueDate)}`;
+    } else if (status === "today") {
+      statusText = "Due today";
+    } else if (status === "upcoming" && dueDate) {
+      statusText = `Due ${formatDate(dueDate)}`;
+    }
 
     return (
       <div className="care-task">
         <div className="care-task-info">
           <strong>{plant.name}</strong>
-          <span>
-            {status === "overdue"
-              ? `Overdue · Due ${formatDate(dueDate)}`
-              : status === "today"
-                ? "Due today"
-                : `Due ${formatDate(dueDate)}`}
-          </span>
+          <span>{statusText}</span>
+
+          {plant.lastWateredAt != null && (
+            <small>
+              Last watered {formatLastWatered(plant.lastWateredAt)}
+            </small>
+          )}
+
           <small>
             {plant.category === "unknown" || !plant.category
               ? "Starting estimate"
               : "Eden recommends"}{" "}
             watering every {interval} {interval === 1 ? "day" : "days"}
           </small>
+
           {plant.location && <small>{plant.location}</small>}
         </div>
 
@@ -202,6 +251,7 @@ export default function CareDashboard({
         <h3>
           {title} <span>{items.length}</span>
         </h3>
+
         {items.length === 0 ? (
           <p className="care-empty">Nothing here right now.</p>
         ) : (
@@ -220,13 +270,10 @@ export default function CareDashboard({
           <h2>Plant care</h2>
           <p>Personalized starting points for your little garden.</p>
         </div>
-        <button
-          className="btn-soft"
-          onClick={enableReminders}
-          disabled={remindersEnabled}
-        >
-          {remindersEnabled ? "Reminders on" : "Enable reminders"}
-        </button>
+
+        <button className="btn-soft" onClick={toggleReminders}>
+  {remindersEnabled ? "Turn reminders off" : "Turn reminders on"}
+</button>
       </div>
 
       <div className="care-counts">
@@ -246,6 +293,11 @@ export default function CareDashboard({
 
       {message && <p className="care-message">{message}</p>}
 
+      <TaskGroup
+        title="Not watered yet"
+        items={unwatered}
+        status="unwatered"
+      />
       <TaskGroup title="Overdue" items={overdue} status="overdue" />
       <TaskGroup title="Due today" items={dueToday} status="today" />
       <TaskGroup title="Upcoming" items={upcoming} status="upcoming" />
