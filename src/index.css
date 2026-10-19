@@ -1,20 +1,21 @@
 :root {
-  --bg: #fff1f7;
-  --dots: #ffd9ea;
+  --bg: #faf8fd;
   --paper: #ffffff;
-  --pink: #ff8fb8;
-  --pink-deep: #e0679a;
-  --pink-pale: #ffe0ee;
+  --pink: #f08fb4;
+  --pink-deep: #d96f9b;
+  --pink-pale: #fdeaf2;
   --lilac: #cdb8ff;
-  --lilac-pale: #efe6ff;
-  --mint: #b9f0da;
-  --mint-pale: #e2faf0;
-  --sky: #bfe3ff;
-  --sky-pale: #e4f3ff;
-  --butter: #fff0b3;
-  --ink: #5b4468;
-  --ink-soft: #8d7a9a;
-  --border: #e6d9ff;
+  --lilac-pale: #f3eefd;
+  --mint: #c4efdd;
+  --mint-pale: #e9f9f2;
+  --sky: #cbe6fb;
+  --sky-pale: #eaf5fd;
+  --butter: #fff4c7;
+  --butter-pale: #fffaeb;
+  --ink: #3f3650;
+  --ink-soft: #7d7490;
+  --border: #ebe6f2;
+  --shadow: 0 1px 2px rgba(63, 54, 80, 0.05), 0 10px 24px -14px rgba(63, 54, 80, 0.18);
 }
 
 * {
@@ -29,11 +30,8 @@ body {
   margin: 0;
   color: var(--ink);
   background-color: var(--bg);
-  background-image: radial-gradient(var(--dots) 2.5px, transparent 2.5px);
-  background-size: 26px 26px;
-  font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Quicksand", "Varela Round",
-    "Segoe UI", system-ui, sans-serif;
-  line-height: 1.5;
+  font-family: "Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.55;
 }
 
 h1,
@@ -41,14 +39,20 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-weight: 800;
+  font-weight: 650;
   color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
 }
 
 .app {
   max-width: 640px;
   margin: 0 auto;
-  padding: 20px 16px 56px;
+  padding: 28px 16px 64px;
 }
 
 .header {
@@ -59,71 +63,73 @@ h4 {
 }
 
 .brand {
-  font-size: 2.6rem;
-  letter-spacing: 0.03em;
-  color: var(--pink);
-  text-shadow: 3px 3px 0 #fff, 5px 5px 0 var(--pink-pale);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
 .tagline {
-  margin: 0 0 20px;
+  margin: 0 0 24px;
   color: var(--ink-soft);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .card {
   background: var(--paper);
-  border: 3px solid var(--border);
-  border-radius: 28px;
-  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 6px 0 var(--lilac-pale);
+  box-shadow: var(--shadow);
 }
 
 .card h2 {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   margin-bottom: 12px;
 }
 
 .card h3 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   margin-bottom: 8px;
 }
 
 .section-title {
   display: inline-block;
   margin: 8px 0 14px;
-  padding: 6px 18px;
-  font-size: 1.2rem;
-  color: #fff;
-  background: var(--lilac);
+  padding: 5px 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--lilac-pale);
   border-radius: 999px;
-  box-shadow: 0 4px 0 #a98fe6;
 }
 
 .field {
   display: block;
   width: 100%;
-  padding: 13px 16px;
+  padding: 12px 14px;
   margin-bottom: 10px;
   font-size: 16px;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink);
-  background: var(--lilac-pale);
-  border: 3px solid transparent;
-  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .field::placeholder {
   color: var(--ink-soft);
-  font-weight: 500;
+  opacity: 0.75;
+  font-weight: 400;
 }
 
 .field:focus {
-  background: #fff;
   border-color: var(--pink);
+  box-shadow: 0 0 0 3px var(--pink-pale);
 }
 
 textarea.field {
@@ -131,22 +137,25 @@ textarea.field {
 }
 
 .btn {
-  min-height: 46px;
-  padding: 10px 24px;
-  font-size: 16px;
-  font-weight: 800;
+  min-height: 44px;
+  padding: 10px 22px;
+  font-size: 15px;
+  font-weight: 600;
   font-family: inherit;
   color: #fff;
   background: var(--pink);
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
   cursor: pointer;
-  box-shadow: 0 5px 0 var(--pink-deep);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover {
+  background: var(--pink-deep);
 }
 
 .btn:active {
-  transform: translateY(3px);
-  box-shadow: 0 2px 0 var(--pink-deep);
+  transform: scale(0.98);
 }
 
 .btn:disabled {
@@ -155,45 +164,49 @@ textarea.field {
 }
 
 .btn-soft {
-  min-height: 40px;
-  padding: 8px 18px;
-  font-size: 15px;
-  font-weight: 800;
+  min-height: 38px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
   font-family: inherit;
   color: var(--ink);
-  background: var(--mint);
-  border: none;
-  border-radius: 999px;
+  background: var(--mint-pale);
+  border: 1px solid var(--mint);
+  border-radius: 10px;
   cursor: pointer;
-  box-shadow: 0 4px 0 #8bd9ba;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn-soft:hover {
+  background: var(--mint);
 }
 
 .btn-soft:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 #8bd9ba;
+  transform: scale(0.98);
 }
 
 .btn-danger {
-  background: var(--pink-pale);
-  box-shadow: 0 4px 0 #f5b3d0;
+  background: #fff;
+  border-color: var(--pink-pale);
+  color: var(--pink-deep);
 }
 
-.btn-danger:active {
-  box-shadow: 0 2px 0 #f5b3d0;
+.btn-danger:hover {
+  background: var(--pink-pale);
 }
 
 .error {
   margin: 12px 0;
-  padding: 10px 16px;
-  font-weight: 700;
+  padding: 10px 14px;
+  font-weight: 600;
   color: #a1305f;
   background: var(--pink-pale);
-  border-radius: 18px;
+  border-radius: 12px;
 }
 
 .hint {
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink-soft);
 }
 
@@ -202,49 +215,54 @@ textarea.field {
   padding: 0;
   margin: 14px 0 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .result-btn {
   width: 100%;
-  min-height: 50px;
-  padding: 10px 16px;
+  min-height: 48px;
+  padding: 10px 14px;
   text-align: left;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   font-family: inherit;
   color: var(--ink);
-  background: var(--sky-pale);
-  border: none;
-  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--sky);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.result-btn:hover {
+  background: var(--sky-pale);
+  border-color: var(--sky);
 }
 
 .result-btn:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 var(--sky);
+  transform: scale(0.99);
 }
 
 .result-btn em {
-  font-weight: 500;
+  font-weight: 400;
   color: var(--ink-soft);
 }
 
 .details {
   margin-top: 16px;
   padding: 16px;
-  background: var(--butter);
-  border-radius: 24px;
+  background: var(--butter-pale);
+  border: 1px solid var(--butter);
+  border-radius: 14px;
 }
 
 .details h3 {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
 }
 
 .details p {
   margin: 8px 0 0;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .chips {
@@ -255,9 +273,9 @@ textarea.field {
 }
 
 .chip {
-  padding: 4px 14px;
-  font-size: 0.9rem;
-  font-weight: 700;
+  padding: 3px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
   border-radius: 999px;
 }
 
@@ -266,7 +284,7 @@ textarea.field {
 }
 
 .chip-sun {
-  background: #fff;
+  background: var(--butter);
 }
 
 .chip-cycle {
@@ -281,7 +299,7 @@ textarea.field {
   height: 0;
   margin: 20px 0;
   border: none;
-  border-top: 4px dotted var(--border);
+  border-top: 1px solid var(--border);
 }
 
 .guide {
@@ -290,9 +308,10 @@ textarea.field {
 
 .guide h4 {
   display: inline-block;
-  margin: 14px 0 6px;
-  padding: 2px 14px;
-  font-size: 0.95rem;
+  margin: 16px 0 6px;
+  padding: 2px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--ink);
   background: var(--lilac-pale);
   border-radius: 999px;
@@ -300,7 +319,7 @@ textarea.field {
 
 .guide p {
   margin: 0 0 6px;
-  font-weight: 500;
+  font-weight: 400;
   white-space: pre-wrap;
 }
 
@@ -308,7 +327,7 @@ textarea.field {
   margin: 14px 0 6px;
   padding: 10px 16px 6px;
   background: var(--pink-pale);
-  border-radius: 20px;
+  border-radius: 14px;
 }
 
 .guide .pet h4 {
@@ -322,7 +341,7 @@ textarea.field {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .plant-card {
@@ -330,59 +349,43 @@ textarea.field {
   gap: 14px;
   padding: 16px;
   background: var(--paper);
-  border: 3px solid var(--border);
-  border-radius: 28px;
-  box-shadow: 0 6px 0 var(--lilac-pale);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
 }
 
 .plant-avatar {
   flex: none;
-  position: relative;
-  width: 62px;
-  height: 62px;
-  border: 3px solid var(--ink);
-  border-radius: 50%;
-  background-image: radial-gradient(circle at 31% 46%, var(--ink) 0 3.5px, transparent 4.5px),
-    radial-gradient(circle at 69% 46%, var(--ink) 0 3.5px, transparent 4.5px),
-    radial-gradient(circle at 17% 66%, rgba(255, 110, 150, 0.55) 0 5px, transparent 6.5px),
-    radial-gradient(circle at 83% 66%, rgba(255, 110, 150, 0.55) 0 5px, transparent 6.5px);
+  width: 64px;
+  height: 72px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
-.plant-avatar::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 57%;
-  width: 12px;
-  height: 7px;
-  transform: translateX(-50%);
-  border: 3px solid var(--ink);
-  border-top: none;
-  border-radius: 0 0 12px 12px;
+.plant-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-.av0 {
-  background-color: var(--pink-pale);
-}
-.av1 {
-  background-color: var(--mint);
-}
-.av2 {
-  background-color: var(--sky);
-}
-.av3 {
-  background-color: var(--lilac);
-}
+.icon-flowering { background-image: url("/plant-icons/flowering.png"); }
+.icon-foliage { background-image: url("/plant-icons/foliage.png"); }
+.icon-succulent { background-image: url("/plant-icons/succulent.png"); }
+.icon-fern { background-image: url("/plant-icons/fern.png"); }
+.icon-palm { background-image: url("/plant-icons/palm.png"); }
+.icon-herb { background-image: url("/plant-icons/herb.png"); }
+.icon-trailing { background-image: url("/plant-icons/trailing.png"); }
+.icon-cactus { background-image: url("/plant-icons/cactus.png"); }
+.icon-bulb { background-image: url("/plant-icons/bulb.png"); }
+.icon-tropical { background-image: url("/plant-icons/tropical.png"); }
 
 .face-lg {
-  width: 88px;
-  height: 88px;
+  width: 96px;
+  height: 108px;
   margin: 0 auto 10px;
-}
-
-.face-lg::after {
-  width: 16px;
-  height: 9px;
 }
 
 .plant-body {
@@ -391,31 +394,31 @@ textarea.field {
 }
 
 .plant-name {
-  font-size: 1.2rem;
-  font-weight: 800;
+  font-size: 1.1rem;
+  font-weight: 650;
   word-break: break-word;
 }
 
 .badge {
   display: inline-block;
   margin: 4px 0;
-  padding: 2px 12px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
   background: var(--butter);
   border-radius: 999px;
 }
 
 .plant-notes {
   margin: 4px 0 8px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--ink-soft);
   word-break: break-word;
 }
 
 .actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   margin-top: 10px;
 }
@@ -423,12 +426,18 @@ textarea.field {
 .empty,
 .welcome {
   text-align: center;
-  padding: 26px 18px;
+  padding: 28px 18px;
 }
 
 .empty p,
 .welcome p {
   margin: 6px 0 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }
