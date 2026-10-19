@@ -213,7 +213,7 @@ export default async function handler(
       if (!existing) return res.status(404).json({ error: "Plant not found" });
 
       const body = req.body ?? {};
-      const changes: Record<string, unknown> = {};
+      const changes: Partial<typeof plants.$inferInsert> = {};
 
       if (typeof body.name === "string") {
         const name = cleanText(body.name, 80);
