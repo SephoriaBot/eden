@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from "react";
 import {
   SignedIn,
@@ -10,11 +11,18 @@ import { addPlant, deletePlant, listPlants, type Plant } from "./api";
 import PlantInfo from "./PlantInfo";
 import GardenSummary from "./GardenSummary";
 
-function tone(id: string) {
-  let sum = 0;
-  for (const ch of id) sum += ch.charCodeAt(0);
-  return `av${sum % 4}`;
-}
+const VALID_CATEGORIES = [
+  "flowering",
+  "foliage",
+  "succulent",
+  "fern",
+  "palm",
+  "herb",
+  "trailing",
+  "cactus",
+  "bulb",
+  "tropical",
+];
 
 function Garden() {
   const { getToken } = useAuth();
@@ -44,6 +52,7 @@ function Garden() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+
     try {
       const plant = await addPlant(getToken, { name, location, notes });
       setPlants((prev) => [plant, ...prev]);
@@ -58,6 +67,7 @@ function Garden() {
 
   async function handleDelete(id: string, plantName: string) {
     if (!window.confirm(`Remove ${plantName} from your garden?`)) return;
+
     try {
       await deletePlant(getToken, id);
       setPlants((prev) => prev.filter((p) => p.id !== id));
@@ -71,12 +81,24 @@ function Garden() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function illustrationClass(plant: Plant) {
+    if (
+      plant.category &&
+      VALID_CATEGORIES.includes(plant.category)
+    ) {
+      return `plant-avatar icon-${plant.category}`;
+    }
+
+    return "plant-avatar";
+  }
+
   return (
     <>
       <PlantInfo prefill={prefill} />
 
       <section className="card">
         <h2>Add a plant</h2>
+
         <form onSubmit={handleAdd}>
           <input
             className="field"
@@ -85,6 +107,7 @@ function Garden() {
             maxLength={80}
             onChange={(e) => setName(e.target.value)}
           />
+
           <input
             className="field"
             placeholder="Location (e.g. kitchen window)"
@@ -92,6 +115,7 @@ function Garden() {
             maxLength={80}
             onChange={(e) => setLocation(e.target.value)}
           />
+
           <textarea
             className="field"
             placeholder="Notes"
@@ -100,6 +124,7 @@ function Garden() {
             rows={3}
             onChange={(e) => setNotes(e.target.value)}
           />
+
           <button className="btn" type="submit" disabled={!name.trim()}>
             Add to my garden
           </button>
@@ -109,6 +134,7 @@ function Garden() {
       <h2 className="section-title">My garden</h2>
 
       {error && <div className="error">{error}</div>}
+
       {loading && <p className="hint">Loading your garden...</p>}
 
       {!loading && plants.length === 0 && (
@@ -118,20 +144,35 @@ function Garden() {
         </div>
       )}
 
-      {!loading && plants.length > 0 && <GardenSummary plantCount={plants.length} />}
+      {!loading && plants.length > 0 && (
+        <GardenSummary plantCount={plants.length} />
+      )}
 
       <ul className="plant-list">
         {plants.map((p) => (
           <li key={p.id} className="plant-card">
-            <div className={`plant-avatar ${tone(p.id)}`} />
+            <div
+              className={illustrationClass(p)}
+              role="img"
+              aria-label={
+                p.category && VALID_CATEGORIES.includes(p.category)
+                  ? `${p.category} plant illustration`
+                  : "Plant illustration unavailable"
+              }
+            />
+
             <div className="plant-body">
               <div className="plant-name">{p.name}</div>
+
               {p.location && <span className="badge">{p.location}</span>}
+
               {p.notes && <div className="plant-notes">{p.notes}</div>}
+
               <div className="actions">
                 <button className="btn-soft" onClick={() => lookup(p.name)}>
                   Care info
                 </button>
+
                 <button
                   className="btn-soft btn-danger"
                   onClick={() => handleDelete(p.id, p.name)}
@@ -152,10 +193,12 @@ export default function App() {
     <main className="app">
       <header className="header">
         <h1 className="brand">Eden</h1>
+
         <SignedIn>
           <UserButton />
         </SignedIn>
       </header>
+
       <p className="tagline">Your little garden journal and plant guide</p>
 
       <SignedOut>
@@ -163,6 +206,7 @@ export default function App() {
           <div className="plant-avatar av0 face-lg" />
           <h2>Welcome to Eden</h2>
           <p>Sign in to start your garden.</p>
+
           <SignInButton mode="modal">
             <button className="btn">Sign in</button>
           </SignInButton>
