@@ -1,8 +1,10 @@
+
 export type Plant = {
   id: string;
   name: string;
   location: string | null;
   notes: string | null;
+  category: string | null;
   createdAt: number;
 };
 
@@ -24,10 +26,12 @@ async function request(getToken: GetToken, path: string, init: RequestInit = {})
       Authorization: `Bearer ${token}`,
     },
   });
+
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || "Request failed");
   }
+
   return res;
 }
 
@@ -44,6 +48,7 @@ export async function addPlant(
     method: "POST",
     body: JSON.stringify(plant),
   });
+
   return res.json();
 }
 
@@ -61,6 +66,7 @@ export async function getCareGuide(
     method: "POST",
     body: JSON.stringify({ mode: "care", plant }),
   });
+
   const data = await res.json();
   return data.sections;
 }
@@ -74,12 +80,18 @@ export async function getTroubleshooting(
     method: "POST",
     body: JSON.stringify({ mode: "troubleshoot", plant, problem }),
   });
+
   const data = await res.json();
   return data.sections;
 }
 
-export async function getGardenSummary(getToken: GetToken): Promise<GuideSection[]> {
-  const res = await request(getToken, "/api/garden-summary", { method: "POST" });
+export async function getGardenSummary(
+  getToken: GetToken
+): Promise<GuideSection[]> {
+  const res = await request(getToken, "/api/garden-summary", {
+    method: "POST",
+  });
+
   const data = await res.json();
   return data.sections;
 }
