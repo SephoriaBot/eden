@@ -7,22 +7,37 @@ import {
   UserButton,
   useAuth,
 } from "@clerk/clerk-react";
-import { addPlant, deletePlant, listPlants, type Plant } from "./api";
+import {
+  addPlant,
+  deletePlant,
+  listPlants,
+  updatePlant,
+  type CareSummary,
+  type Plant,
+} from "./api";
 import PlantInfo from "./PlantInfo";
 import GardenSummary from "./GardenSummary";
 
 const VALID_CATEGORIES = [
-  "flowering",
-  "foliage",
-  "succulent",
-  "fern",
-  "palm",
-  "herb",
-  "trailing",
-  "cactus",
-  "bulb",
-  "tropical",
+  "flowering", "foliage", "succulent", "fern", "palm",
+  "herb", "trailing", "cactus", "bulb", "tropical",
 ];
+
+function readCareSummary(value: string | null): CareSummary | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed !== "object" || !parsed) return null;
+    return {
+      overview: typeof parsed.overview === "string" ? parsed.overview : "",
+      light: typeof parsed.light === "string" ? parsed.light : "",
+      watering: typeof parsed.watering === "string" ? parsed.watering : "",
+      temperature: typeof parsed.temperature === "string" ? parsed.temperature : "",
+    };
+  } catch {
+    return null;
+  }
+}
 
 function Garden() {
   const { getToken } = useAuth();
@@ -32,7 +47,14 @@ function Garden() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [prefill, setPrefill] = useState({ text: "", n: 0 });
+  const [prefill, setPrefill] = useState<{
+    text: string;
+    n: number;
+    plantId: string | null;
+  }>({ text: "", n: 0, plantId: null });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +87,33 @@ function Garden() {
     }
   }
 
+  async function handleSaveName(id: string) {
+    if (!editingName.trim()) {
+      setError("Enter a plant name first.");
+      return;
+    }
+
+    setSavingId(id);
+    try {
+      const updated = await updatePlant(getToken, id, {
+        name: editingName.trim(),
+      });
+      setPlants((prev) => prev.map((p) => p.id === id ? updated : p));
+      setEditingId(null);
+      setEditingName("");
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update plant");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleSaveCareSummary(id: string, summary: CareSummary) {
+    const updated = await updatePlant(getToken, id, { careSummary: summary });
+    setPlants((prev) => prev.map((p) => p.id === id ? updated : p));
+  }
+
   async function handleDelete(id: string, plantName: string) {
     if (!window.confirm(`Remove ${plantName} from your garden?`)) return;
 
@@ -76,29 +125,31 @@ function Garden() {
     }
   }
 
-  function lookup(plantName: string) {
-    setPrefill((p) => ({ text: plantName, n: p.n + 1 }));
+  function lookup(plant: Plant) {
+    setPrefill((prev) => ({
+      text: plant.name,
+      n: prev.n + 1,
+      plantId: plant.id,
+    }));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function illustrationClass(plant: Plant) {
-    if (
-      plant.category &&
-      VALID_CATEGORIES.includes(plant.category)
-    ) {
+    if (plant.category && VALID_CATEGORIES.includes(plant.category)) {
       return `plant-avatar icon-${plant.category}`;
     }
-
     return "plant-avatar";
   }
 
   return (
     <>
-      <PlantInfo prefill={prefill} />
+      <PlantInfo
+        prefill={prefill}
+        onCareSummarySaved={handleSaveCareSummary}
+      />
 
       <section className="card">
         <h2>Add a plant</h2>
-
         <form onSubmit={handleAdd}>
           <input
             className="field"
@@ -107,7 +158,6 @@ function Garden() {
             maxLength={80}
             onChange={(e) => setName(e.target.value)}
           />
-
           <input
             className="field"
             placeholder="Location (e.g. kitchen window)"
@@ -115,7 +165,6 @@ function Garden() {
             maxLength={80}
             onChange={(e) => setLocation(e.target.value)}
           />
-
           <textarea
             className="field"
             placeholder="Notes"
@@ -124,7 +173,6 @@ function Garden() {
             rows={3}
             onChange={(e) => setNotes(e.target.value)}
           />
-
           <button className="btn" type="submit" disabled={!name.trim()}>
             Add to my garden
           </button>
@@ -134,7 +182,6 @@ function Garden() {
       <h2 className="section-title">My garden</h2>
 
       {error && <div className="error">{error}</div>}
-
       {loading && <p className="hint">Loading your garden...</p>}
 
       {!loading && plants.length === 0 && (
@@ -149,40 +196,102 @@ function Garden() {
       )}
 
       <ul className="plant-list">
-        {plants.map((p) => (
-          <li key={p.id} className="plant-card">
-            <div
-              className={illustrationClass(p)}
-              role="img"
-              aria-label={
-                p.category && VALID_CATEGORIES.includes(p.category)
-                  ? `${p.category} plant illustration`
-                  : "Plant illustration unavailable"
-              }
-            />
+        {plants.map((p) => {
+          const care = readCareSummary(p.careSummary);
 
-            <div className="plant-body">
-              <div className="plant-name">{p.name}</div>
+          return (
+            <li key={p.id} className="plant-card">
+              <div
+                className={illustrationClass(p)}
+                role="img"
+                aria-label={
+                  p.category && VALID_CATEGORIES.includes(p.category)
+                    ? `${p.category} plant illustration`
+                    : "Plant illustration unavailable"
+                }
+              />
 
-              {p.location && <span className="badge">{p.location}</span>}
+              <div className="plant-body">
+                {editingId === p.id ? (
+                  <>
+                    <input
+                      className="field"
+                      aria-label="Correct plant name"
+                      placeholder="Correct plant name"
+                      value={editingName}
+                      maxLength={80}
+                      onChange={(e) => setEditingName(e.target.value)}
+                    />
+                    <div className="actions">
+                      <button
+                        className="btn-soft"
+                        onClick={() => handleSaveName(p.id)}
+                        disabled={savingId === p.id || !editingName.trim()}
+                      >
+                        {savingId === p.id ? "Saving..." : "Save name"}
+                      </button>
+                      <button
+                        className="btn-soft"
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditingName("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="plant-name">{p.name}</div>
+                    <div className="actions">
+                      <button
+                        className="btn-soft"
+                        onClick={() => {
+                          setEditingId(p.id);
+                          setEditingName(p.name);
+                        }}
+                      >
+                        Edit name
+                      </button>
+                    </div>
+                  </>
+                )}
 
-              {p.notes && <div className="plant-notes">{p.notes}</div>}
+                {p.location && <span className="badge">{p.location}</span>}
+                {p.notes && <div className="plant-notes">{p.notes}</div>}
 
-              <div className="actions">
-                <button className="btn-soft" onClick={() => lookup(p.name)}>
-                  Care info
-                </button>
+                {care && (
+                  <div className="details">
+                    <h3>Quick care</h3>
+                    {care.overview && <p>{care.overview}</p>}
+                    {care.light && (
+                      <p><strong>Light:</strong> {care.light}</p>
+                    )}
+                    {care.watering && (
+                      <p><strong>Water:</strong> {care.watering}</p>
+                    )}
+                    {care.temperature && (
+                      <p><strong>Temperature & humidity:</strong> {care.temperature}</p>
+                    )}
+                  </div>
+                )}
 
-                <button
-                  className="btn-soft btn-danger"
-                  onClick={() => handleDelete(p.id, p.name)}
-                >
-                  Remove
-                </button>
+                <div className="actions">
+                  <button className="btn-soft" onClick={() => lookup(p)}>
+                    {care ? "Refresh care info" : "Get care info"}
+                  </button>
+                  <button
+                    className="btn-soft btn-danger"
+                    onClick={() => handleDelete(p.id, p.name)}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </>
   );
@@ -193,7 +302,6 @@ export default function App() {
     <main className="app">
       <header className="header">
         <h1 className="brand">Eden</h1>
-
         <SignedIn>
           <UserButton />
         </SignedIn>
@@ -206,7 +314,6 @@ export default function App() {
           <div className="plant-avatar av0 face-lg" />
           <h2>Welcome to Eden</h2>
           <p>Sign in to start your garden.</p>
-
           <SignInButton mode="modal">
             <button className="btn">Sign in</button>
           </SignInButton>
