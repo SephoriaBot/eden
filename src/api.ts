@@ -1,4 +1,5 @@
 
+
 export type CareSummary = {
   overview: string;
   light: string;
@@ -14,6 +15,7 @@ export type Plant = {
   category: string | null;
   careSummary: string | null;
   wateringIntervalDays: number;
+  recommendedWateringIntervalDays: number | null;
   lastWateredAt: number | null;
   createdAt: number;
 };
@@ -22,6 +24,7 @@ export type GuideSection = {
   title: string;
   body: string;
 };
+
 
 type GetToken = () => Promise<string | null>;
 

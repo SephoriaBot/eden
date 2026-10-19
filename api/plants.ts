@@ -14,6 +14,11 @@ const PLANT_CATEGORIES = [
 
 type PlantCategory = (typeof PLANT_CATEGORIES)[number];
 
+type PlantProfile = {
+  category: PlantCategory;
+  wateringIntervalDays: number;
+};
+
 function cleanText(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -24,12 +29,56 @@ function nameKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
+function fallbackProfile(name: string): PlantProfile {
+  const n = name.toLowerCase();
+
+  const knownPlants: Array<[string[], PlantProfile]> = [
+    [["snake plant", "mother-in-law's tongue", "zz plant"], {
+      category: "foliage", wateringIntervalDays: 14,
+    }],
+    [["aloe", "jade plant", "echeveria", "haworthia"], {
+      category: "succulent", wateringIntervalDays: 14,
+    }],
+    [["cactus"], {
+      category: "cactus", wateringIntervalDays: 21,
+    }],
+    [["peace lily"], {
+      category: "flowering", wateringIntervalDays: 5,
+    }],
+    [["spider plant"], {
+      category: "trailing", wateringIntervalDays: 7,
+    }],
+    [["pothos", "philodendron", "monstera"], {
+      category: "trailing", wateringIntervalDays: 7,
+    }],
+    [["fern", "maidenhair"], {
+      category: "fern", wateringIntervalDays: 3,
+    }],
+    [["basil", "mint", "cilantro", "parsley"], {
+      category: "herb", wateringIntervalDays: 2,
+    }],
+    [["orchid"], {
+      category: "flowering", wateringIntervalDays: 7,
+    }],
+    [["lavender", "rosemary", "thyme"], {
+      category: "herb", wateringIntervalDays: 7,
+    }],
+  ];
+
+  for (const [names, profile] of knownPlants) {
+    if (names.some((known) => n.includes(known))) return profile;
+  }
+
+  return { category: "unknown", wateringIntervalDays: 7 };
+}
+
 async function ensureColumns() {
   const statements = [
     sql`ALTER TABLE plants ADD COLUMN category TEXT`,
     sql`ALTER TABLE plants ADD COLUMN care_summary TEXT`,
     sql`ALTER TABLE plants ADD COLUMN watering_interval_days INTEGER NOT NULL DEFAULT 7`,
     sql`ALTER TABLE plants ADD COLUMN last_watered_at INTEGER`,
+    sql`ALTER TABLE plants ADD COLUMN recommended_watering_interval_days INTEGER`,
   ];
 
   for (const statement of statements) {
@@ -50,10 +99,15 @@ async function ensureColumns() {
   }
 }
 
-async function classifyPlantNames(
+async function getPlantProfiles(
   names: string[]
-): Promise<Map<string, PlantCategory>> {
-  const result = new Map<string, PlantCategory>();
+): Promise<Map<string, PlantProfile>> {
+  const result = new Map<string, PlantProfile>();
+
+  for (const name of names) {
+    result.set(nameKey(name), fallbackProfile(name));
+  }
+
   const key = process.env.GROQ_API_KEY;
   if (!key || names.length === 0) return result;
 
@@ -69,14 +123,16 @@ async function classifyPlantNames(
         body: JSON.stringify({
           model: "openai/gpt-oss-120b",
           temperature: 0.1,
-          max_completion_tokens: 1200,
+          max_completion_tokens: 1800,
           messages: [
             {
               role: "system",
-              content: `Classify each plant by its most likely actual botanical type. Choose one category:
-flowering, foliage, succulent, fern, palm, herb, trailing, cactus, bulb, tropical, unknown.
-Prefer specific categories. Use unknown if uncertain.
-Return only JSON: {"plants":[{"name":"exact original name","category":"category"}]}
+              content: `For each supplied plant name, estimate its most likely plant category and a typical indoor watering interval in days.
+Categories: flowering, foliage, succulent, fern, palm, herb, trailing, cactus, bulb, tropical, unknown.
+Use 1 to 30 days. Base the interval on typical indoor care for the likely species, not a rigid schedule.
+If the name is ambiguous, use category "unknown" and a conservative general estimate.
+Return only JSON in this format:
+{"plants":[{"name":"exact original name","category":"foliage","wateringIntervalDays":7}]}
 Include every supplied name exactly once.`,
             },
             { role: "user", content: JSON.stringify({ names }) },
@@ -100,15 +156,19 @@ Include every supplied name exactly once.`,
     if (!Array.isArray(parsed.plants)) return result;
 
     for (const item of parsed.plants) {
-      if (
-        typeof item?.name === "string" &&
-        PLANT_CATEGORIES.includes(item.category)
-      ) {
-        result.set(nameKey(item.name), item.category as PlantCategory);
-      }
+      if (typeof item?.name !== "string") continue;
+      if (!PLANT_CATEGORIES.includes(item.category)) continue;
+
+      const days = Number(item.wateringIntervalDays);
+      if (!Number.isInteger(days) || days < 1 || days > 30) continue;
+
+      result.set(nameKey(item.name), {
+        category: item.category as PlantCategory,
+        wateringIntervalDays: days,
+      });
     }
   } catch {
-    // Classification is optional.
+    // Use fallback recommendations if the model is unavailable.
   }
 
   return result;
@@ -157,24 +217,36 @@ export default async function handler(
         .orderBy(desc(plants.createdAt))
         .limit(MAX_PLANTS_PER_USER);
 
-      const missing = rows.filter((plant) => !plant.category);
+      const missing = rows.filter(
+        (plant) => plant.recommendedWateringIntervalDays == null
+      );
+
       if (missing.length > 0) {
-        const categories = await classifyPlantNames(
+        const profiles = await getPlantProfiles(
           missing.map((plant) => plant.name)
         );
 
         for (const plant of missing) {
-          const category = categories.get(nameKey(plant.name));
-          if (!category) continue;
+          const profile =
+            profiles.get(nameKey(plant.name)) ??
+            fallbackProfile(plant.name);
 
           await db.update(plants)
-            .set({ category })
+            .set({
+              category: plant.category ?? profile.category,
+              recommendedWateringIntervalDays:
+                profile.wateringIntervalDays,
+              wateringIntervalDays: profile.wateringIntervalDays,
+            })
             .where(and(
               eq(plants.id, plant.id),
               eq(plants.userId, userId)
             ));
 
-          plant.category = category;
+          plant.category = plant.category ?? profile.category;
+          plant.recommendedWateringIntervalDays =
+            profile.wateringIntervalDays;
+          plant.wateringIntervalDays = profile.wateringIntervalDays;
         }
       }
 
@@ -197,16 +269,20 @@ export default async function handler(
         return res.status(400).json({ error: "Plant limit reached" });
       }
 
-      const categories = await classifyPlantNames([name]);
+      const profiles = await getPlantProfiles([name]);
+      const profile =
+        profiles.get(nameKey(name)) ?? fallbackProfile(name);
+
       const row = {
         id: crypto.randomUUID(),
         userId,
         name,
         location: cleanText(body.location, 80),
         notes: cleanText(body.notes, 500),
-        category: categories.get(nameKey(name)) ?? null,
+        category: profile.category,
         careSummary: null,
-        wateringIntervalDays: 7,
+        wateringIntervalDays: profile.wateringIntervalDays,
+        recommendedWateringIntervalDays: profile.wateringIntervalDays,
         lastWateredAt: null,
         createdAt: Date.now(),
       };
@@ -239,8 +315,14 @@ export default async function handler(
         changes.name = name;
 
         if (nameKey(name) !== nameKey(existing.name)) {
-          const categories = await classifyPlantNames([name]);
-          changes.category = categories.get(nameKey(name)) ?? null;
+          const profiles = await getPlantProfiles([name]);
+          const profile =
+            profiles.get(nameKey(name)) ?? fallbackProfile(name);
+
+          changes.category = profile.category;
+          changes.recommendedWateringIntervalDays =
+            profile.wateringIntervalDays;
+          changes.wateringIntervalDays = profile.wateringIntervalDays;
           changes.careSummary = null;
         }
       }
@@ -251,16 +333,6 @@ export default async function handler(
           return res.status(400).json({ error: "Invalid care summary" });
         }
         changes.careSummary = summary;
-      }
-
-      if (body.wateringIntervalDays !== undefined) {
-        const days = Number(body.wateringIntervalDays);
-        if (!Number.isInteger(days) || days < 1 || days > 90) {
-          return res.status(400).json({
-            error: "Watering interval must be 1–90 days",
-          });
-        }
-        changes.wateringIntervalDays = days;
       }
 
       if (body.lastWateredAt !== undefined) {

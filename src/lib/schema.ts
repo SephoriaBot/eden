@@ -20,6 +20,9 @@ export const plants = sqliteTable(
     wateringIntervalDays: integer("watering_interval_days")
       .notNull()
       .default(7),
+    recommendedWateringIntervalDays: integer(
+      "recommended_watering_interval_days"
+    ),
     lastWateredAt: integer("last_watered_at"),
     createdAt: integer("created_at").notNull(),
   },

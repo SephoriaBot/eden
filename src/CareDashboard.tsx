@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { updatePlant, type Plant } from "./api";
 
-const INTERVALS = [2, 3, 5, 7, 10, 14, 21, 30];
-
 type Props = {
   plants: Plant[];
   onPlantUpdated: (plant: Plant) => void;
@@ -12,31 +10,28 @@ type Props = {
 
 type Status = "overdue" | "today" | "upcoming";
 
-function getStatus(plant: Plant): Status {
-  if (!plant.lastWateredAt) return "today";
-
-  const nextDue =
-    plant.lastWateredAt +
-    plant.wateringIntervalDays * 24 * 60 * 60 * 1000;
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-  if (nextDue < todayStart.getTime()) return "overdue";
-  if (nextDue < tomorrowStart.getTime()) return "today";
-  return "upcoming";
+function getInterval(plant: Plant): number {
+  return plant.recommendedWateringIntervalDays ?? 7;
 }
 
-function getDueDate(plant: Plant): Date | null {
-  if (!plant.lastWateredAt) return null;
-
+function getDueDate(plant: Plant): Date {
+  const lastCareDate = plant.lastWateredAt ?? plant.createdAt;
   return new Date(
-    plant.lastWateredAt +
-      plant.wateringIntervalDays * 24 * 60 * 60 * 1000
+    lastCareDate + getInterval(plant) * 24 * 60 * 60 * 1000
   );
+}
+
+function getStatus(plant: Plant): Status {
+  const due = getDueDate(plant);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  if (due.getTime() < today.getTime()) return "overdue";
+  if (due.getTime() < tomorrow.getTime()) return "today";
+  return "upcoming";
 }
 
 function formatDate(date: Date): string {
@@ -59,22 +54,20 @@ export default function CareDashboard({
   const dueToday = plants.filter((p) => getStatus(p) === "today");
   const upcoming = plants.filter((p) => getStatus(p) === "upcoming");
 
-  async function saveChange(
-    plant: Plant,
-    changes: {
-      wateringIntervalDays?: number;
-      lastWateredAt?: number;
-    }
-  ) {
+  async function markWatered(plant: Plant) {
     setBusyId(plant.id);
     setMessage("");
 
     try {
-      const updated = await updatePlant(getToken, plant.id, changes);
+      const updated = await updatePlant(getToken, plant.id, {
+        lastWateredAt: Date.now(),
+      });
       onPlantUpdated(updated);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Could not save watering schedule."
+        error instanceof Error
+          ? error.message
+          : "Could not save watering date."
       );
     } finally {
       setBusyId(null);
@@ -92,19 +85,20 @@ export default function CareDashboard({
 
       if (permission === "granted") {
         setRemindersEnabled(true);
-        setMessage("Reminders are enabled on this device.");
+        setMessage("Plant reminders are enabled on this device.");
       } else {
         setRemindersEnabled(false);
-        setMessage("Notifications were not enabled. You can change this in browser settings.");
+        setMessage("Notifications weren't enabled. Check your browser settings.");
       }
     } catch {
-      setMessage("Could not enable notifications in this browser.");
+      setMessage("Could not enable browser notifications.");
     }
   }
 
   useEffect(() => {
-    if (!("Notification" in window)) return;
-    setRemindersEnabled(Notification.permission === "granted");
+    if ("Notification" in window) {
+      setRemindersEnabled(Notification.permission === "granted");
+    }
   }, []);
 
   useEffect(() => {
@@ -117,10 +111,7 @@ export default function CareDashboard({
         return;
       }
 
-      const due = plants.filter(
-        (plant) => getStatus(plant) !== "upcoming"
-      );
-
+      const due = plants.filter((plant) => getStatus(plant) !== "upcoming");
       if (due.length === 0) return;
 
       const today = new Date().toLocaleDateString();
@@ -134,19 +125,18 @@ export default function CareDashboard({
 
         new Notification("Eden: plant care reminder", {
           body:
-            `${due.length} plant${due.length === 1 ? "" : "s"} need watering: ` +
+            `${due.length} plant${due.length === 1 ? "" : "s"} due for watering: ` +
             names.join(", ") +
             (remaining > 0 ? ` and ${remaining} more.` : "."),
         });
 
         window.localStorage.setItem(storageKey, "shown");
       } catch {
-        // The dashboard still works if browser storage is unavailable.
+        // Reminders are optional; the dashboard still works without storage.
       }
     }
 
     checkReminders();
-
     const timer = window.setInterval(checkReminders, 60 * 60 * 1000);
     window.addEventListener("focus", checkReminders);
 
@@ -164,52 +154,36 @@ export default function CareDashboard({
     status: Status;
   }) {
     const dueDate = getDueDate(plant);
+    const interval = getInterval(plant);
     const isBusy = busyId === plant.id;
 
     return (
-      <div className="care-task" key={plant.id}>
+      <div className="care-task">
         <div className="care-task-info">
           <strong>{plant.name}</strong>
           <span>
             {status === "overdue"
-              ? `Overdue${dueDate ? ` · Due ${formatDate(dueDate)}` : ""}`
+              ? `Overdue · Due ${formatDate(dueDate)}`
               : status === "today"
                 ? "Due today"
-                : `Due ${dueDate ? formatDate(dueDate) : "soon"}`}
+                : `Due ${formatDate(dueDate)}`}
           </span>
+          <small>
+            {plant.category === "unknown" || !plant.category
+              ? "Starting estimate"
+              : "Eden recommends"}{" "}
+            watering every {interval} {interval === 1 ? "day" : "days"}
+          </small>
           {plant.location && <small>{plant.location}</small>}
         </div>
 
-        <div className="care-task-controls">
-          <label>
-            <span>Water every</span>
-            <select
-              value={plant.wateringIntervalDays || 7}
-              disabled={isBusy}
-              onChange={(event) =>
-                saveChange(plant, {
-                  wateringIntervalDays: Number(event.target.value),
-                })
-              }
-            >
-              {INTERVALS.map((days) => (
-                <option key={days} value={days}>
-                  {days} days
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            className="btn-soft"
-            disabled={isBusy}
-            onClick={() =>
-              saveChange(plant, { lastWateredAt: Date.now() })
-            }
-          >
-            {isBusy ? "Saving..." : "Watered"}
-          </button>
-        </div>
+        <button
+          className="btn-soft"
+          disabled={isBusy}
+          onClick={() => markWatered(plant)}
+        >
+          {isBusy ? "Saving..." : "Watered"}
+        </button>
       </div>
     );
   }
@@ -244,7 +218,7 @@ export default function CareDashboard({
       <div className="care-dashboard-heading">
         <div>
           <h2>Plant care</h2>
-          <p>Keep your garden happy, one little task at a time.</p>
+          <p>Personalized starting points for your little garden.</p>
         </div>
         <button
           className="btn-soft"
@@ -277,8 +251,8 @@ export default function CareDashboard({
       <TaskGroup title="Upcoming" items={upcoming} status="upcoming" />
 
       <p className="care-note">
-        Watering intervals are reminders, not a diagnosis of soil moisture.
-        Check the soil and each plant’s care guide before watering.
+        These are estimates, not fixed rules. Check the soil before watering;
+        light, pot size, soil, and season all affect how quickly a plant dries.
       </p>
     </section>
   );
