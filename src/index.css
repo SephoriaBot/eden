@@ -852,3 +852,52 @@ textarea.field {
     width: 100%;
   }
 }
+
+
+.main-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin: 20px 0 24px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.main-tab {
+  display: flex;
+  min-width: 0;
+  min-height: 66px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 2px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.main-tab span {
+  font-size: 1.15rem;
+}
+
+.main-tab.active {
+  color: var(--ink);
+  background: var(--pink-pale);
+}
+
+@media (max-width: 380px) {
+  .main-tab {
+    font-size: 0.65rem;
+  }
+}
