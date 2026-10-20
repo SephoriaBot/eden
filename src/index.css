@@ -794,3 +794,61 @@ textarea.field {
     gap: 3px;
   }
 }
+
+
+.space-recommendation-title {
+  margin: 24px 0 12px;
+  font-size: 1.05rem;
+}
+
+.space-reason {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  background: var(--lilac-pale);
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.space-match-list {
+  display: grid;
+  gap: 8px;
+}
+
+.space-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.space-match > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.space-match > div span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.space-match button {
+  flex: none;
+}
+
+@media (max-width: 420px) {
+  .space-match {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .space-match button {
+    width: 100%;
+  }
+}
