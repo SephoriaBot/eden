@@ -3,9 +3,11 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "../src/lib/db.js";
 import { plants } from "../src/lib/schema.js";
-import { getUserId } from "../src/lib/auth.js";
+import { getUserId, isGuestId } from "../src/lib/auth.js";
+import { underDailyLimit } from "../src/lib/limits.js";
 
 const MAX_PLANTS_PER_USER = 100;
+const MAX_PLANTS_PER_GUEST = 15;
 
 const PLANT_CATEGORIES = [
   "flowering", "foliage", "succulent", "fern", "palm",
@@ -101,7 +103,8 @@ async function ensureColumns() {
 }
 
 async function getPlantProfiles(
-  names: string[]
+  names: string[],
+  userId: string
 ): Promise<Map<string, PlantProfile>> {
   const result = new Map<string, PlantProfile>();
 
@@ -111,6 +114,11 @@ async function getPlantProfiles(
 
   const key = process.env.GROQ_API_KEY;
   if (!key || names.length === 0) return result;
+
+  // Demo guests share a small daily AI pool; once it's used up they get the built-in estimates.
+  if (isGuestId(userId) && !(await underDailyLimit(userId, "profile", 0))) {
+    return result;
+  }
 
   try {
     const response = await fetch(
@@ -224,7 +232,8 @@ export default async function handler(
 
       if (missing.length > 0) {
         const profiles = await getPlantProfiles(
-          missing.map((plant) => plant.name)
+          missing.map((plant) => plant.name),
+          userId
         );
 
         for (const plant of missing) {
@@ -266,11 +275,15 @@ export default async function handler(
         .from(plants)
         .where(eq(plants.userId, userId));
 
-      if (total >= MAX_PLANTS_PER_USER) {
+      const maxPlants = isGuestId(userId)
+        ? MAX_PLANTS_PER_GUEST
+        : MAX_PLANTS_PER_USER;
+
+      if (total >= maxPlants) {
         return res.status(400).json({ error: "Plant limit reached" });
       }
 
-      const profiles = await getPlantProfiles([name]);
+      const profiles = await getPlantProfiles([name], userId);
       const profile =
         profiles.get(nameKey(name)) ?? fallbackProfile(name);
 
@@ -325,7 +338,7 @@ export default async function handler(
         changes.name = name;
 
         if (nameKey(name) !== nameKey(existing.name)) {
-          const profiles = await getPlantProfiles([name]);
+          const profiles = await getPlantProfiles([name], userId);
           const profile =
             profiles.get(nameKey(name)) ?? fallbackProfile(name);
 
