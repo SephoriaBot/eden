@@ -25,12 +25,14 @@ const SPACE_TYPES = [
   "Other",
 ];
 
+
 const LIGHT_LEVELS: { value: LightLevel; label: string }[] = [
   { value: "low", label: "Low light" },
   { value: "medium", label: "Medium, indirect light" },
-  { value: "bright", label: "Bright, indirect light" },
+  { value: "bright", label: "Bright light / strong grow light" },
   { value: "direct", label: "Direct sunlight" },
 ];
+
 
 function getLightNeeds(plant: Plant): {
   level: LightLevel | "unknown";
@@ -104,6 +106,7 @@ function getLightNeeds(plant: Plant): {
   };
 }
 
+
 function scoreMatch(plant: Plant, space: GrowingSpace) {
   const needs = getLightNeeds(plant);
 
@@ -112,6 +115,35 @@ function scoreMatch(plant: Plant, space: GrowingSpace) {
       score: 0,
       label: "Needs care info",
       message: needs.reason,
+    };
+  }
+
+  const isGrowLight = /grow.light/i.test(space.type);
+
+  if (isGrowLight) {
+    if (needs.level === "bright") {
+      return {
+        score: 3,
+        label: "Strong match",
+        message:
+          "Bright artificial light is a good fit. Keep an eye on the leaves and adjust the distance if needed.",
+      };
+    }
+
+    if (needs.level === "medium" || needs.level === "low") {
+      return {
+        score: 3,
+        label: "Good candidate",
+        message:
+          "This plant can often grow under grow lights. Adjust its distance from the light to avoid leaf stress.",
+      };
+    }
+
+    return {
+      score: 2,
+      label: "Possible match",
+      message:
+        "This plant prefers strong light. A grow light may work well for 12 hours a day, but its intensity and distance determine whether it provides enough light.",
     };
   }
 
@@ -132,7 +164,7 @@ function scoreMatch(plant: Plant, space: GrowingSpace) {
     return {
       score: 2,
       label: "Possible match",
-      message: `${needs.reason} This space has a different light level, so monitor the plant for stress.`,
+      message: `${needs.reason} Monitor the plant and adjust its placement if needed.`,
     };
   }
 
@@ -142,6 +174,7 @@ function scoreMatch(plant: Plant, space: GrowingSpace) {
     message: `${needs.reason} This space may provide too much or too little light.`,
   };
 }
+
 
 function parseLocation(location: string | null) {
   if (!location) return "";
