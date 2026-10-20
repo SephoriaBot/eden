@@ -139,12 +139,14 @@ function scoreMatch(plant: Plant, space: GrowingSpace) {
       };
     }
 
+    
     return {
-      score: 2,
-      label: "Possible match",
+      score: 3,
+      label: "Good candidate",
       message:
-        "This plant prefers strong light. A grow light may work well for 12 hours a day, but its intensity and distance determine whether it provides enough light.",
+        "This plant can be grown under a strong grow light. Watch for signs of stretching or leaf stress and adjust placement as needed.",
     };
+
   }
 
   const levels: LightLevel[] = ["low", "medium", "bright", "direct"];
