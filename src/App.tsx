@@ -1,8 +1,6 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
-  SignedIn,
-  SignedOut,
   SignInButton,
   UserButton,
   useAuth,
@@ -10,7 +8,11 @@ import {
 import {
   addPlant,
   deletePlant,
+  exitGuest,
+  forgetGuest,
+  getGuestToken,
   listPlants,
+  startGuest,
   updatePlant,
   type CareSummary,
   type Plant,
@@ -428,31 +430,74 @@ function Garden() {
 }
 
 export default function App() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const [guest, setGuest] = useState<boolean>(() => !!getGuestToken());
+
+  // Once someone signs in, drop the demo id so it can never be used by mistake.
+  useEffect(() => {
+    if (isSignedIn) {
+      forgetGuest();
+      setGuest(false);
+    }
+  }, [isSignedIn]);
+
+  async function leaveDemo() {
+    await exitGuest();
+    setGuest(false);
+  }
+
+  const inDemo = isLoaded && !isSignedIn && guest;
+  const showWelcome = isLoaded && !isSignedIn && !guest;
+
   return (
     <main className="app">
-      <header className="header">
+      <header className="header" style={{ flexWrap: "wrap", gap: 8 }}>
         <h1 className="brand">Eden</h1>
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
+        {isSignedIn && <UserButton />}
+        {inDemo && (
+          <div className="actions" style={{ marginTop: 0, alignItems: "center" }}>
+            <span className="hint">Guest demo</span>
+            <SignInButton mode="modal">
+              <button className="btn-soft" type="button">Sign in</button>
+            </SignInButton>
+            <button className="btn-soft" type="button" onClick={leaveDemo}>
+              Exit demo
+            </button>
+          </div>
+        )}
       </header>
 
       <p className="tagline">Your little garden journal and plant guide</p>
 
-      <SignedOut>
+      {showWelcome && (
         <div className="card welcome">
           <div className="plant-avatar av0 face-lg" />
           <h2>Welcome to Eden</h2>
           <p>Sign in to start your garden.</p>
-          <SignInButton mode="modal">
-            <button className="btn">Sign in</button>
-          </SignInButton>
+          <div className="actions" style={{ justifyContent: "center", marginTop: 0 }}>
+            <SignInButton mode="modal">
+              <button className="btn">Sign in</button>
+            </SignInButton>
+            <button
+              className="btn-soft"
+              type="button"
+              onClick={() => {
+                startGuest();
+                setGuest(true);
+              }}
+            >
+              Try the demo (no sign-in)
+            </button>
+          </div>
+          <p className="hint">
+            Guest data is wiped when you exit the demo.
+          </p>
         </div>
-      </SignedOut>
+      )}
 
-      <SignedIn>
-        <Garden />
-      </SignedIn>
+      {isLoaded && (isSignedIn || inDemo) && (
+        <Garden key={isSignedIn ? "user" : "guest"} />
+      )}
     </main>
   );
 }
