@@ -18,6 +18,7 @@ import {
 import PlantInfo from "./PlantInfo";
 import GardenSummary from "./GardenSummary";
 import CareDashboard from "./CareDashboard";
+import GrowingSpacePlanner from "./GrowingSpacePlanner";
 
 const VALID_CATEGORIES = [
   "flowering", "foliage", "succulent", "fern", "palm",
@@ -162,6 +163,13 @@ function Garden() {
           onPlantUpdated={handlePlantUpdated}
         />
       )}
+
+      {!loading && (
+  <GrowingSpacePlanner
+    plants={plants}
+    onPlantUpdated={handlePlantUpdated}
+  />
+)}
 
       <section className="card">
         <h2>Add a plant</h2>

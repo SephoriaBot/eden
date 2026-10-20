@@ -636,3 +636,161 @@ textarea.field {
     width: 100%;
   }
 }
+
+
+/* Growing Space Planner */
+.space-planner {
+  overflow: hidden;
+}
+
+.space-planner-heading,
+.space-group-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.space-planner-heading p {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.space-count,
+.space-plant-count {
+  flex: none;
+  padding: 4px 10px;
+  background: var(--lilac-pale);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.space-form {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.space-form label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.space-form .field {
+  margin-top: 5px;
+}
+
+.space-message {
+  margin: 4px 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.space-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.space-summary span {
+  padding: 6px 10px;
+  background: var(--mint-pale);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.space-summary span:last-child {
+  background: var(--pink-pale);
+}
+
+.space-list {
+  display: grid;
+  gap: 12px;
+}
+
+.space-group {
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.space-group-heading {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.space-group-heading h3 {
+  margin-top: 3px;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.space-type {
+  color: var(--pink-deep);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.space-plant-list {
+  display: grid;
+  gap: 6px;
+}
+
+.space-plant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.space-plant:hover {
+  border-color: var(--pink);
+}
+
+.space-edit {
+  flex: none;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.space-unplaced {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--pink-pale);
+  border-radius: 12px;
+}
+
+.space-unplaced h3 {
+  font-size: 0.95rem;
+}
+
+.space-unplaced p,
+.space-empty {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 420px) {
+  .space-plant {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}

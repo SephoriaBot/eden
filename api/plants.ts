@@ -307,6 +307,15 @@ export default async function handler(
       const body = req.body ?? {};
       const changes: Partial<typeof plants.$inferInsert> = {};
 
+      if (body.location !== undefined) {
+  if (body.location !== null && typeof body.location !== "string") {
+    return res.status(400).json({ error: "Invalid location" });
+  }
+
+  changes.location =
+    body.location === null ? null : cleanText(body.location, 80);
+}
+
       if (typeof body.name === "string") {
         const name = cleanText(body.name, 80);
         if (!name) {

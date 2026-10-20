@@ -72,11 +72,12 @@ export async function updatePlant(
   getToken: GetToken,
   id: string,
   changes: {
-    name?: string;
-    careSummary?: CareSummary;
-    wateringIntervalDays?: number;
-    lastWateredAt?: number;
-  }
+  name?: string;
+  location?: string | null;
+  careSummary?: CareSummary;
+  wateringIntervalDays?: number;
+  lastWateredAt?: number;
+}
 ): Promise<Plant> {
   const res = await request(
     getToken,
