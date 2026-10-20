@@ -28,12 +28,61 @@ export type GuideSection = {
 
 type GetToken = () => Promise<string | null>;
 
+// Demo mode: a random "guest_<32 hex>" id kept in this browser, used when nobody is signed in.
+const GUEST_KEY = "eden:guest";
+const GUEST_RE = /^guest_[0-9a-f]{32}$/;
+let memoryGuest: string | null = null; // fallback if localStorage is blocked
+
+export function getGuestToken(): string | null {
+  try {
+    const v = localStorage.getItem(GUEST_KEY);
+    if (v && GUEST_RE.test(v)) return v;
+  } catch {
+    // ignore storage failures (e.g. private browsing)
+  }
+  return memoryGuest;
+}
+
+export function startGuest(): string {
+  const token = getGuestToken() ?? `guest_${crypto.randomUUID().replace(/-/g, "")}`;
+  memoryGuest = token;
+  try {
+    localStorage.setItem(GUEST_KEY, token);
+  } catch {
+    // ignore storage failures
+  }
+  return token;
+}
+
+// Forget the guest id on this device (data is left alone; used when someone signs in).
+export function forgetGuest(): void {
+  memoryGuest = null;
+  try {
+    localStorage.removeItem(GUEST_KEY);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+// "Exit demo": wipe the guest's data on the server, then forget the id.
+export async function exitGuest(): Promise<void> {
+  const token = getGuestToken();
+  if (token) {
+    await fetch("/api/guest", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }
+  forgetGuest();
+}
+
 async function request(
   getToken: GetToken,
   path: string,
   init: RequestInit = {}
 ) {
-  const token = await getToken();
+  // A signed-in user's token always wins; guests only apply when nobody is signed in.
+  const token = (await getToken()) ?? getGuestToken();
   if (!token) throw new Error("Not signed in");
 
   const res = await fetch(path, {
