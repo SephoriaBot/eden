@@ -1,21 +1,21 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { updatePlant, type Plant } from "./api";
+import {
+  addGrowingSpace,
+  deleteGrowingSpace,
+  listGrowingSpaces,
+  updatePlant,
+  type GrowingSpace,
+  type Plant,
+} from "./api";
 
 type Props = {
   plants: Plant[];
   onPlantUpdated: (plant: Plant) => void;
 };
 
-type LightLevel = "low" | "medium" | "bright" | "direct";
-
-type GrowingSpace = {
-  id: string;
-  name: string;
-  type: string;
-  light: LightLevel;
-};
+type LightLevel = GrowingSpace["light"];
 
 const SPACE_TYPES = [
   "Windowsill",
@@ -32,15 +32,6 @@ const LIGHT_LEVELS: { value: LightLevel; label: string }[] = [
   { value: "direct", label: "Direct sunlight" },
 ];
 
-function readSpaces(): GrowingSpace[] {
-  try {
-    const saved = localStorage.getItem("eden-growing-spaces");
-    return saved ? JSON.parse(saved) as GrowingSpace[] : [];
-  } catch {
-    return [];
-  }
-}
-
 function getLightNeeds(plant: Plant): {
   level: LightLevel | "unknown";
   reason: string;
@@ -52,25 +43,20 @@ function getLightNeeds(plant: Plant): {
     const care = plant.careSummary
       ? JSON.parse(plant.careSummary)
       : null;
-    careLight = typeof care?.light === "string"
-      ? care.light.toLowerCase()
-      : "";
+    careLight =
+      typeof care?.light === "string" ? care.light.toLowerCase() : "";
   } catch {
-    // Use the plant-name fallback below.
+    // Use the name-based estimate below.
   }
 
-  if (
-    /direct sun|full sun|several hours of direct|full sunlight/.test(careLight)
-  ) {
+  if (/direct sun|full sun|several hours of direct|full sunlight/.test(careLight)) {
     return {
       level: "direct",
       reason: "Its saved care guide recommends direct sunlight.",
     };
   }
 
-  if (
-    /bright.*indirect|bright indirect|filtered bright/.test(careLight)
-  ) {
+  if (/bright.*indirect|bright indirect|filtered bright/.test(careLight)) {
     return {
       level: "bright",
       reason: "Its saved care guide recommends bright, indirect light.",
@@ -91,12 +77,10 @@ function getLightNeeds(plant: Plant): {
     };
   }
 
-  if (
-    /cactus|echeveria|lavender|rosemary|thyme|basil|succulent/.test(name)
-  ) {
+  if (/cactus|echeveria|lavender|rosemary|thyme|basil|succulent/.test(name)) {
     return {
       level: "direct",
-      reason: "This plant commonly needs strong light. Confirm the species' care guide.",
+      reason: "This plant commonly needs strong light. Confirm its care guide.",
     };
   }
 
@@ -110,20 +94,17 @@ function getLightNeeds(plant: Plant): {
   if (/spider plant|philodendron|monstera|fern|orchid/.test(name)) {
     return {
       level: "medium",
-      reason: "This plant commonly prefers indirect light. Confirm its species-specific needs.",
+      reason: "This plant commonly prefers indirect light. Confirm its care guide.",
     };
   }
 
   return {
     level: "unknown",
-    reason: "Eden needs a reliable light recommendation before it can confidently match this plant.",
+    reason: "Eden needs reliable light information before confidently matching this plant.",
   };
 }
 
-function scoreMatch(
-  plant: Plant,
-  space: GrowingSpace
-): { score: number; message: string; label: string } {
+function scoreMatch(plant: Plant, space: GrowingSpace) {
   const needs = getLightNeeds(plant);
 
   if (needs.level === "unknown") {
@@ -135,11 +116,8 @@ function scoreMatch(
   }
 
   const levels: LightLevel[] = ["low", "medium", "bright", "direct"];
-  const plantLevel = needs.level;
-  const spaceLevel = space.light;
-
   const distance = Math.abs(
-    levels.indexOf(plantLevel) - levels.indexOf(spaceLevel)
+    levels.indexOf(needs.level) - levels.indexOf(space.light)
   );
 
   if (distance === 0) {
@@ -154,7 +132,7 @@ function scoreMatch(
     return {
       score: 2,
       label: "Possible match",
-      message: `${needs.reason} This space has a different light level, so monitor the plant for signs of stress.`,
+      message: `${needs.reason} This space has a different light level, so monitor the plant for stress.`,
     };
   }
 
@@ -176,59 +154,84 @@ export default function GrowingSpacePlanner({
   onPlantUpdated,
 }: Props) {
   const { getToken } = useAuth();
-  const [spaces, setSpaces] = useState<GrowingSpace[]>(readSpaces);
+
+  const [spaces, setSpaces] = useState<GrowingSpace[]>([]);
   const [spaceName, setSpaceName] = useState("");
   const [spaceType, setSpaceType] = useState("Windowsill");
   const [light, setLight] = useState<LightLevel>("bright");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [savingPlantId, setSavingPlantId] = useState("");
+  const [deletingSpaceId, setDeletingSpaceId] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    localStorage.setItem("eden-growing-spaces", JSON.stringify(spaces));
-  }, [spaces]);
+    let cancelled = false;
 
-  const recommendations = useMemo(() => {
-    return plants.map((plant) => {
-      const matches = spaces
-        .map((space) => ({
-          space,
-          ...scoreMatch(plant, space),
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      return { plant, matches };
-    });
-  }, [plants, spaces]);
-
-  function addSpace(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedName = spaceName.trim();
-
-    if (!trimmedName) return;
-
-    const duplicate = spaces.some(
-      (space) =>
-        space.name.toLowerCase() === trimmedName.toLowerCase() &&
-        space.type === spaceType
-    );
-
-    if (duplicate) {
-      setMessage("That growing space already exists.");
-      return;
+    async function loadSpaces() {
+      try {
+        const saved = await listGrowingSpaces(getToken);
+        if (!cancelled) setSpaces(saved);
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Could not load your growing spaces."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
-    setSpaces((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
+    loadSpaces();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken]);
+
+  const recommendations = useMemo(
+    () =>
+      plants.map((plant) => ({
+        plant,
+        matches: spaces
+          .map((space) => ({
+            space,
+            ...scoreMatch(plant, space),
+          }))
+          .sort((a, b) => b.score - a.score),
+      })),
+    [plants, spaces]
+  );
+
+  async function handleAddSpace(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedName = spaceName.trim();
+    if (!trimmedName || saving) return;
+
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const created = await addGrowingSpace(getToken, {
         name: trimmedName,
         type: spaceType,
         light,
-      },
-    ]);
+      });
 
-    setSpaceName("");
-    setMessage(`Added ${trimmedName}.`);
+      setSpaces((current) => [...current, created]);
+      setSpaceName("");
+      setMessage(`Added ${created.name}. Saved to your account.`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not save this space."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function assignPlant(plant: Plant, space: GrowingSpace) {
@@ -236,8 +239,10 @@ export default function GrowingSpacePlanner({
     setMessage("");
 
     try {
-      const location = `${space.type} · ${space.name}`;
-      const updated = await updatePlant(getToken, plant.id, { location });
+      const updated = await updatePlant(getToken, plant.id, {
+        location: `${space.type} · ${space.name}`,
+      });
+
       onPlantUpdated(updated);
       setMessage(`${plant.name} assigned to ${space.name}.`);
     } catch (error) {
@@ -249,7 +254,7 @@ export default function GrowingSpacePlanner({
     }
   }
 
-  function removeSpace(space: GrowingSpace) {
+  async function removeSpace(space: GrowingSpace) {
     const assigned = plants.some(
       (plant) => parseLocation(plant.location) === space.name
     );
@@ -259,8 +264,22 @@ export default function GrowingSpacePlanner({
       return;
     }
 
-    setSpaces((current) => current.filter((item) => item.id !== space.id));
-    setMessage(`Removed ${space.name}.`);
+    setDeletingSpaceId(space.id);
+    setMessage("");
+
+    try {
+      await deleteGrowingSpace(getToken, space.id);
+      setSpaces((current) =>
+        current.filter((item) => item.id !== space.id)
+      );
+      setMessage(`Removed ${space.name}.`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not remove this space."
+      );
+    } finally {
+      setDeletingSpaceId("");
+    }
   }
 
   return (
@@ -268,14 +287,16 @@ export default function GrowingSpacePlanner({
       <div className="space-planner-heading">
         <div>
           <h2>Growing Space Planner</h2>
-          <p>Add your spaces and let Eden compare their light with your plants' needs.</p>
+          <p>
+            Add your spaces and let Eden compare their light with your plants' needs.
+          </p>
         </div>
         <span className="space-count">
           {spaces.length} {spaces.length === 1 ? "space" : "spaces"}
         </span>
       </div>
 
-      <form className="space-form" onSubmit={addSpace}>
+      <form className="space-form" onSubmit={handleAddSpace}>
         <h3>Add a growing space</h3>
 
         <label>
@@ -318,12 +339,18 @@ export default function GrowingSpacePlanner({
           </select>
         </label>
 
-        <button className="btn" type="submit">Add space</button>
+        <button className="btn" type="submit" disabled={saving || loading}>
+          {saving ? "Saving..." : "Add space"}
+        </button>
       </form>
 
-      {message && <p className="space-message" role="status">{message}</p>}
+      {message && (
+        <p className="space-message" role="status">{message}</p>
+      )}
 
-      {spaces.length > 0 && (
+      {loading ? (
+        <p className="space-empty">Loading your saved spaces...</p>
+      ) : spaces.length > 0 ? (
         <div className="space-list">
           {spaces.map((space) => (
             <div className="space-group" key={space.id}>
@@ -338,14 +365,19 @@ export default function GrowingSpacePlanner({
                 <button
                   className="btn-soft btn-danger"
                   type="button"
+                  disabled={deletingSpaceId === space.id}
                   onClick={() => removeSpace(space)}
                 >
-                  Remove
+                  {deletingSpaceId === space.id ? "Removing..." : "Remove"}
                 </button>
               </div>
             </div>
           ))}
         </div>
+      ) : (
+        <p className="space-empty">
+          You haven't added any growing spaces yet.
+        </p>
       )}
 
       <h3 className="space-recommendation-title">Plant placement suggestions</h3>
@@ -354,7 +386,7 @@ export default function GrowingSpacePlanner({
         <p className="space-empty">Add plants to your garden to get suggestions.</p>
       ) : spaces.length === 0 ? (
         <p className="space-empty">
-          Add at least one growing space above to start matching plants.
+          Add a growing space above to start matching plants.
         </p>
       ) : (
         <div className="space-list">
@@ -378,9 +410,7 @@ export default function GrowingSpacePlanner({
                   )}
                 </div>
 
-                {best && (
-                  <p className="space-reason">{best.message}</p>
-                )}
+                {best && <p className="space-reason">{best.message}</p>}
 
                 <div className="space-match-list">
                   {matches.map((match) => (
@@ -392,7 +422,10 @@ export default function GrowingSpacePlanner({
                       <button
                         className="btn-soft"
                         type="button"
-                        disabled={savingPlantId === plant.id || currentLocation === match.space.name}
+                        disabled={
+                          savingPlantId === plant.id ||
+                          currentLocation === match.space.name
+                        }
                         onClick={() => assignPlant(plant, match.space)}
                       >
                         {savingPlantId === plant.id
@@ -412,8 +445,8 @@ export default function GrowingSpacePlanner({
 
       <p className="care-note">
         Suggestions are estimates, not guarantees. Check each plant's care guide
-        and adjust for your local conditions. Space profiles currently stay in
-        this browser; plant assignments are saved to your Eden account.
+        and adjust for your local conditions. Your growing spaces and plant
+        assignments are saved to your Eden account.
       </p>
     </section>
   );

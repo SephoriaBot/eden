@@ -133,3 +133,40 @@ export async function getGardenSummary(
   const data = await res.json();
   return data.sections;
 }
+
+
+export type GrowingSpace = {
+  id: string;
+  name: string;
+  type: string;
+  light: "low" | "medium" | "bright" | "direct";
+};
+
+export async function listGrowingSpaces(
+  getToken: GetToken
+): Promise<GrowingSpace[]> {
+  const res = await request(getToken, "/api/growing-spaces");
+  return res.json();
+}
+
+export async function addGrowingSpace(
+  getToken: GetToken,
+  space: Omit<GrowingSpace, "id">
+): Promise<GrowingSpace> {
+  const res = await request(getToken, "/api/growing-spaces", {
+    method: "POST",
+    body: JSON.stringify(space),
+  });
+  return res.json();
+}
+
+export async function deleteGrowingSpace(
+  getToken: GetToken,
+  id: string
+): Promise<void> {
+  await request(
+    getToken,
+    `/api/growing-spaces?id=${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
+}
