@@ -35,12 +35,14 @@ const VALID_CATEGORIES = [
 
 type Tab = "garden" | "guide" | "care" | "spaces";
 
-const TABS: { id: Tab; icon: string; label: string }[] = [
-  { id: "garden", icon: "🌱", label: "My Garden" },
-  { id: "guide", icon: "📖", label: "Plant Guide" },
-  { id: "care", icon: "🗓️", label: "Care Schedule" },
-  { id: "spaces", icon: "☀️", label: "Growing Spaces" },
-];
+
+const TABS = [
+  { id: "garden", label: "My Garden", icon: "/mygarden.png" },
+  { id: "guide", label: "Plant Guide", icon: "/plantguide.png" },
+  { id: "care", label: "Care Schedule", icon: "/careschedule.png" },
+  { id: "spaces", label: "Growing Spaces", icon: "/growingspaces.png" },
+] as const;
+
 
 function readCareSummary(value: string | null): CareSummary | null {
   if (!value) return null;
@@ -209,7 +211,7 @@ function Garden() {
             aria-current={activeTab === tab.id ? "page" : undefined}
             onClick={() => setActiveTab(tab.id)}
           >
-            <span aria-hidden="true">{tab.icon}</span>
+            <img src={tab.icon} alt="" className="main-tab-icon" />
             {tab.label}
           </button>
         ))}

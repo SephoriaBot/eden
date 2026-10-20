@@ -942,3 +942,11 @@ textarea.field {
     transition: none !important;
   }
 }
+
+
+.main-tab-icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
