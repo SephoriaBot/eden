@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { updatePlant, type Plant } from "./api";
-import { isPushOn, enablePush, disablePush } from "./push";
 
 type Props = {
   plants: Plant[];
@@ -60,8 +59,6 @@ export default function CareDashboard({
 }: Props) {
   const { getToken } = useAuth();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [reminderBusy, setReminderBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   const unwatered = plants.filter((p) => getStatus(p) === "unwatered");
@@ -88,44 +85,6 @@ export default function CareDashboard({
       );
     } finally {
       setBusyId(null);
-    }
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    isPushOn()
-      .then((on) => {
-        if (!cancelled) setRemindersEnabled(on);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function toggleReminders() {
-    if (reminderBusy) return;
-    setReminderBusy(true);
-    setMessage("");
-
-    try {
-      if (remindersEnabled) {
-        await disablePush(getToken);
-        setRemindersEnabled(false);
-        setMessage("Plant reminders are off. You can turn them back on here.");
-      } else {
-        await enablePush(getToken);
-        setRemindersEnabled(true);
-        setMessage(
-          "Plant reminders are on. You'll get a notification when plants need water, even when Eden is closed."
-        );
-      }
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not change reminders."
-      );
-    } finally {
-      setReminderBusy(false);
     }
   }
 
@@ -218,13 +177,6 @@ export default function CareDashboard({
           <p>Personalized starting points for your little garden.</p>
         </div>
 
-        <button
-          className="btn-soft"
-          onClick={toggleReminders}
-          disabled={reminderBusy}
-        >
-  {remindersEnabled ? "Turn reminders off" : "Turn reminders on"}
-</button>
       </div>
 
       <div className="care-counts">

@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   SignInButton,
@@ -20,6 +19,7 @@ import {
 import PlantInfo from "./PlantInfo";
 import GardenSummary from "./GardenSummary";
 import CareDashboard from "./CareDashboard";
+import RemindersButton from "./RemindersButton";
 import GrowingSpacePlanner from "./GrowingSpacePlanner";
 
 const VALID_CATEGORIES = [
@@ -453,7 +453,12 @@ export default function App() {
     <main className="app">
       <header className="header" style={{ flexWrap: "wrap", gap: 8 }}>
         <h1 className="brand">Eden</h1>
-        {isSignedIn && <UserButton />}
+        {isSignedIn && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <RemindersButton />
+            <UserButton />
+          </div>
+        )}
         {inDemo && (
           <div className="actions" style={{ marginTop: 0, alignItems: "center" }}>
             <span className="hint">Guest demo</span>

@@ -12,7 +12,7 @@ function cleanString(value: unknown, max: number): string | null {
   return trimmed && trimmed.length <= max ? trimmed : null;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handle(req: VercelRequest, res: VercelResponse) {
   const userId = await getUserId(req);
   if (!userId) return res.status(401).json({ error: "Not signed in" });
 
@@ -86,4 +86,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.setHeader("Allow", "POST, DELETE");
   return res.status(405).json({ error: "Method not allowed" });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    return await handle(req, res);
+  } catch (err) {
+    console.error("push-subscription failed", err);
+    return res
+      .status(500)
+      .json({ error: "Could not save reminder settings. Please try again." });
+  }
 }
