@@ -17,3 +17,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </ClerkProvider>
   </React.StrictMode>
 );
+
+// Lets Eden receive plant care reminders even when it is closed.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Reminders are optional.
+    });
+  });
+}

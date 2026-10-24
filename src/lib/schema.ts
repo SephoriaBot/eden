@@ -1,4 +1,3 @@
-
 import {
   sqliteTable,
   text,
@@ -53,3 +52,18 @@ export const plantGuides = sqliteTable("plant_guides", {
   source: text("source").notNull(),
   createdAt: integer("created_at").notNull(),
 });
+
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => ({
+    userIdx: index("push_subscriptions_user_idx").on(t.userId),
+  })
+);
