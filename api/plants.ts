@@ -359,6 +359,16 @@ export default async function handler(
         changes.careSummary = summary;
       }
 
+      if (body.wateringIntervalDays !== undefined) {
+        const days = Number(body.wateringIntervalDays);
+        if (!Number.isInteger(days) || days < 1 || days > 30) {
+          return res
+            .status(400)
+            .json({ error: "Watering interval must be 1 to 30 days" });
+        }
+        changes.wateringIntervalDays = days;
+      }
+
       if (body.lastWateredAt !== undefined) {
         const timestamp = Number(body.lastWateredAt);
         if (!Number.isFinite(timestamp) || timestamp < 0) {
