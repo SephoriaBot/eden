@@ -9,6 +9,7 @@ import {
   FIX_PROMPT,
   askGroq,
   cleanText,
+  guideKey,
   isCompleteCareGuide,
   slugify,
 } from "../src/lib/guide.js";
@@ -51,6 +52,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(200).json({ sections: JSON.parse(saved.sections) });
         } catch {
           // Bad saved row: fall through and regenerate.
+        }
+      }
+
+      // No exact match: try a looser one (plurals, "plant", punctuation).
+      // Only the short slug and name columns are read here, not the guides.
+      const wanted = guideKey(plant);
+      if (wanted) {
+        const names = await db
+          .select({ slug: plantGuides.slug, name: plantGuides.name })
+          .from(plantGuides);
+        const match = names.find((row) => guideKey(row.name) === wanted);
+
+        if (match) {
+          const [similar] = await db
+            .select()
+            .from(plantGuides)
+            .where(eq(plantGuides.slug, match.slug))
+            .limit(1);
+          if (similar) {
+            try {
+              return res
+                .status(200)
+                .json({ sections: JSON.parse(similar.sections) });
+            } catch {
+              // Bad saved row: fall through and regenerate.
+            }
+          }
         }
       }
     }
