@@ -45,6 +45,13 @@ export const aiUsage = sqliteTable(
   })
 );
 
+export const plantProfileCache = sqliteTable("plant_profile_cache", {
+  nameKey: text("name_key").primaryKey(),
+  category: text("category").notNull(),
+  wateringIntervalDays: integer("watering_interval_days").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
 export const plantGuides = sqliteTable("plant_guides", {
   slug: text("slug").primaryKey(),
   name: text("name").notNull(),
