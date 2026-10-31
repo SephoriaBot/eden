@@ -53,6 +53,26 @@ export function slugify(name: string): string {
     .slice(0, 60);
 }
 
+// A looser key for matching what someone typed to a saved guide: ignores case,
+// punctuation, plurals and the word "plant", so "Snake plants", "snake plant"
+// and "Snake" all find the same guide. It never matches on partial names, so
+// "Rose of Sharon" will not pick up the Rose guide.
+export function guideKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['\u2019]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((w) => w && w !== "plant" && w !== "plants")
+    .map((w) => {
+      if (w.length > 4 && w.endsWith("ies")) return w.slice(0, -3) + "y";
+      if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
+      return w;
+    })
+    .join(" ");
+}
+
 function stripMarkdown(s: string): string {
   return s.replace(/\*\*/g, "").replace(/^#+\s*/gm, "").trim();
 }
