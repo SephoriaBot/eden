@@ -75,7 +75,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // watering day is today or earlier.
       const due = userPlants.filter((p) => {
         if (p.lastWateredAt == null) return false;
-        const interval = p.recommendedWateringIntervalDays ?? 7;
+        const interval =
+          p.wateringIntervalDays ?? p.recommendedWateringIntervalDays ?? 7;
         return dayNumber(new Date(p.lastWateredAt + interval * DAY_MS)) <= today;
       });
       if (due.length === 0) continue;
