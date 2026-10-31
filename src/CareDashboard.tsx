@@ -10,7 +10,11 @@ type Props = {
 type Status = "unwatered" | "overdue" | "today" | "upcoming";
 
 function getInterval(plant: Plant): number {
-  return plant.recommendedWateringIntervalDays ?? 7;
+  return (
+    plant.wateringIntervalDays ??
+    plant.recommendedWateringIntervalDays ??
+    7
+  );
 }
 
 function getDueDate(plant: Plant): Date {
@@ -60,6 +64,8 @@ export default function CareDashboard({
   const { getToken } = useAuth();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const unwatered = plants.filter((p) => getStatus(p) === "unwatered");
   const overdue = plants.filter((p) => getStatus(p) === "overdue");
@@ -88,13 +94,45 @@ export default function CareDashboard({
     }
   }
 
-  function PlantTask({
-    plant,
-    status,
-  }: {
-    plant: Plant;
-    status: Status;
-  }) {
+  function startEditing(plant: Plant) {
+    setEditingId(plant.id);
+    setDraft(String(getInterval(plant)));
+    setMessage("");
+  }
+
+  async function saveInterval(plant: Plant, days: number) {
+    if (!Number.isInteger(days) || days < 1 || days > 30) {
+      setMessage("Enter a whole number of days from 1 to 30.");
+      return;
+    }
+
+    setBusyId(plant.id);
+    setMessage("");
+
+    try {
+      const updated = await updatePlant(getToken, plant.id, {
+        wateringIntervalDays: days,
+      });
+
+      onPlantUpdated(updated);
+      setEditingId(null);
+      setMessage(
+        `${plant.name} will now be watered every ${days} ${
+          days === 1 ? "day" : "days"
+        }.`
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save watering interval."
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function renderTask(plant: Plant, status: Status) {
     const isBusy = busyId === plant.id;
     const interval = getInterval(plant);
     const dueDate =
@@ -110,8 +148,12 @@ export default function CareDashboard({
       statusText = `Due ${formatDate(dueDate)}`;
     }
 
+    const suggested = plant.recommendedWateringIntervalDays;
+    const isCustom = suggested != null && suggested !== interval;
+    const isEditing = editingId === plant.id;
+
     return (
-      <div className="care-task">
+      <div className="care-task" key={plant.id}>
         <div className="care-task-info">
           <strong>{plant.name}</strong>
           <span>{statusText}</span>
@@ -122,12 +164,67 @@ export default function CareDashboard({
             </small>
           )}
 
-          <small>
-            {plant.category === "unknown" || !plant.category
-              ? "Starting estimate"
-              : "Eden recommends"}{" "}
-            watering every {interval} {interval === 1 ? "day" : "days"}
-          </small>
+          {isEditing ? (
+            <small>
+              Water every{" "}
+              <input
+                type="number"
+                min={1}
+                max={30}
+                step={1}
+                inputMode="numeric"
+                value={draft}
+                disabled={isBusy}
+                onChange={(e) => setDraft(e.target.value)}
+                aria-label={`Days between waterings for ${plant.name}`}
+                style={{ width: "4.5rem" }}
+              />{" "}
+              days{" "}
+              <button
+                className="btn-soft"
+                disabled={isBusy}
+                onClick={() => saveInterval(plant, Number(draft))}
+              >
+                Save
+              </button>{" "}
+              <button
+                className="btn-soft"
+                disabled={isBusy}
+                onClick={() => setEditingId(null)}
+              >
+                Cancel
+              </button>
+              {isCustom && (
+                <>
+                  {" "}
+                  <button
+                    className="btn-soft"
+                    disabled={isBusy}
+                    onClick={() => saveInterval(plant, suggested!)}
+                  >
+                    Use Eden's suggestion ({suggested})
+                  </button>
+                </>
+              )}
+            </small>
+          ) : (
+            <small>
+              {isCustom
+                ? "Your schedule"
+                : plant.category === "unknown" || !plant.category
+                ? "Starting estimate"
+                : "Eden recommends"}{" "}
+              watering every {interval}{" "}
+              {interval === 1 ? "day" : "days"}{" "}
+              <button
+                className="btn-soft"
+                disabled={isBusy}
+                onClick={() => startEditing(plant)}
+              >
+                Change
+              </button>
+            </small>
+          )}
 
           {plant.location && <small>{plant.location}</small>}
         </div>
@@ -143,17 +240,9 @@ export default function CareDashboard({
     );
   }
 
-  function TaskGroup({
-    title,
-    items,
-    status,
-  }: {
-    title: string;
-    items: Plant[];
-    status: Status;
-  }) {
+  function renderGroup(title: string, items: Plant[], status: Status) {
     return (
-      <section className="care-group">
+      <section className="care-group" key={title}>
         <h3>
           {title} <span>{items.length}</span>
         </h3>
@@ -161,9 +250,7 @@ export default function CareDashboard({
         {items.length === 0 ? (
           <p className="care-empty">Nothing here right now.</p>
         ) : (
-          items.map((plant) => (
-            <PlantTask key={plant.id} plant={plant} status={status} />
-          ))
+          items.map((plant) => renderTask(plant, status))
         )}
       </section>
     );
@@ -196,14 +283,10 @@ export default function CareDashboard({
 
       {message && <p className="care-message">{message}</p>}
 
-      <TaskGroup
-        title="Not watered yet"
-        items={unwatered}
-        status="unwatered"
-      />
-      <TaskGroup title="Overdue" items={overdue} status="overdue" />
-      <TaskGroup title="Due today" items={dueToday} status="today" />
-      <TaskGroup title="Upcoming" items={upcoming} status="upcoming" />
+      {renderGroup("Not watered yet", unwatered, "unwatered")}
+      {renderGroup("Overdue", overdue, "overdue")}
+      {renderGroup("Due today", dueToday, "today")}
+      {renderGroup("Upcoming", upcoming, "upcoming")}
 
       <p className="care-note">
         These are estimates, not fixed rules. Check the soil before watering;
