@@ -1,8 +1,9 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../src/lib/db.js";
-import { plants } from "../src/lib/schema.js";
+import { plants, plantProfileCache } from "../src/lib/schema.js";
+import { lookupBuiltInProfile } from "../src/lib/plantProfiles.js";
 import { getUserId, isGuestId } from "../src/lib/auth.js";
 import { underDailyLimit } from "../src/lib/limits.js";
 
@@ -32,49 +33,22 @@ function nameKey(name: string): string {
 }
 
 function fallbackProfile(name: string): PlantProfile {
-  const n = name.toLowerCase();
-
-  const knownPlants: Array<[string[], PlantProfile]> = [
-    [["snake plant", "mother-in-law's tongue", "zz plant"], {
-      category: "foliage", wateringIntervalDays: 14,
-    }],
-    [["aloe", "jade plant", "echeveria", "haworthia"], {
-      category: "succulent", wateringIntervalDays: 14,
-    }],
-    [["cactus"], {
-      category: "cactus", wateringIntervalDays: 21,
-    }],
-    [["peace lily"], {
-      category: "flowering", wateringIntervalDays: 5,
-    }],
-    [["spider plant"], {
-      category: "trailing", wateringIntervalDays: 7,
-    }],
-    [["pothos", "philodendron", "monstera"], {
-      category: "trailing", wateringIntervalDays: 7,
-    }],
-    [["fern", "maidenhair"], {
-      category: "fern", wateringIntervalDays: 3,
-    }],
-    [["basil", "mint", "cilantro", "parsley"], {
-      category: "herb", wateringIntervalDays: 2,
-    }],
-    [["orchid"], {
-      category: "flowering", wateringIntervalDays: 7,
-    }],
-    [["lavender", "rosemary", "thyme"], {
-      category: "herb", wateringIntervalDays: 7,
-    }],
-  ];
-
-  for (const [names, profile] of knownPlants) {
-    if (names.some((known) => n.includes(known))) return profile;
-  }
-
-  return { category: "unknown", wateringIntervalDays: 7 };
+  return (
+    lookupBuiltInProfile(name) ?? {
+      category: "unknown",
+      wateringIntervalDays: 7,
+    }
+  );
 }
 
 async function ensureColumns() {
+  await db.run(sql`CREATE TABLE IF NOT EXISTS plant_profile_cache (
+    name_key TEXT PRIMARY KEY,
+    category TEXT NOT NULL,
+    watering_interval_days INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  )`);
+
   const statements = [
     sql`ALTER TABLE plants ADD COLUMN category TEXT`,
     sql`ALTER TABLE plants ADD COLUMN care_summary TEXT`,
@@ -107,13 +81,48 @@ async function getPlantProfiles(
   userId: string
 ): Promise<Map<string, PlantProfile>> {
   const result = new Map<string, PlantProfile>();
+  let unresolved: string[] = [];
 
+  // 1. Eden's built-in plant list (no AI, instant).
   for (const name of names) {
+    const known = lookupBuiltInProfile(name);
+    if (known) {
+      result.set(nameKey(name), known);
+    } else {
+      unresolved.push(name);
+    }
+  }
+
+  if (unresolved.length === 0) return result;
+
+  // 2. Answers the AI already gave for these names (no AI, instant).
+  try {
+    const cached = await db
+      .select()
+      .from(plantProfileCache)
+      .where(inArray(plantProfileCache.nameKey, unresolved.map(nameKey)));
+
+    for (const row of cached) {
+      if (!PLANT_CATEGORIES.includes(row.category as PlantCategory)) continue;
+      result.set(row.nameKey, {
+        category: row.category as PlantCategory,
+        wateringIntervalDays: row.wateringIntervalDays,
+      });
+    }
+  } catch {
+    // If the cache can't be read, carry on to the AI.
+  }
+
+  unresolved = unresolved.filter((name) => !result.has(nameKey(name)));
+  if (unresolved.length === 0) return result;
+
+  // 3. Only now ask the AI, and only about names Eden doesn't know yet.
+  for (const name of unresolved) {
     result.set(nameKey(name), fallbackProfile(name));
   }
 
   const key = process.env.GROQ_API_KEY;
-  if (!key || names.length === 0) return result;
+  if (!key) return result;
 
   // Demo guests share a small daily AI pool; once it's used up they get the built-in estimates.
   if (isGuestId(userId) && !(await underDailyLimit(userId, "profile", 0))) {
@@ -144,7 +153,7 @@ Return only JSON in this format:
 {"plants":[{"name":"exact original name","category":"foliage","wateringIntervalDays":7}]}
 Include every supplied name exactly once.`,
             },
-            { role: "user", content: JSON.stringify({ names }) },
+            { role: "user", content: JSON.stringify({ names: unresolved }) },
           ],
         }),
         signal: AbortSignal.timeout(12000),
@@ -171,10 +180,25 @@ Include every supplied name exactly once.`,
       const days = Number(item.wateringIntervalDays);
       if (!Number.isInteger(days) || days < 1 || days > 30) continue;
 
-      result.set(nameKey(item.name), {
+      const profile: PlantProfile = {
         category: item.category as PlantCategory,
         wateringIntervalDays: days,
-      });
+      };
+      result.set(nameKey(item.name), profile);
+
+      // Remember it so the same name never needs the AI again.
+      if (profile.category !== "unknown") {
+        await db
+          .insert(plantProfileCache)
+          .values({
+            nameKey: nameKey(item.name),
+            category: profile.category,
+            wateringIntervalDays: days,
+            createdAt: Date.now(),
+          })
+          .onConflictDoNothing()
+          .catch(() => {});
+      }
     }
   } catch {
     // Use fallback recommendations if the model is unavailable.
