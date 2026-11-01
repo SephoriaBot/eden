@@ -21,6 +21,8 @@ import GardenSummary from "./GardenSummary";
 import CareDashboard from "./CareDashboard";
 import RemindersButton from "./RemindersButton";
 import GrowingSpacePlanner from "./GrowingSpacePlanner";
+import { lookupPlantFacts } from "./lib/plantProfiles";
+import "./keyfacts.css";
 
 const VALID_CATEGORIES = [
   "flowering",
@@ -45,28 +47,6 @@ const TABS = [
   { id: "spaces", label: "Growing Spaces", icon: "/growingspaces.png" },
 ] as const;
 
-
-function readCareSummary(value: string | null): CareSummary | null {
-  if (!value) return null;
-
-  try {
-    const parsed = JSON.parse(value);
-    if (typeof parsed !== "object" || !parsed) return null;
-
-    return {
-      overview: typeof parsed.overview === "string" ? parsed.overview : "",
-      light: typeof parsed.light === "string" ? parsed.light : "",
-      watering:
-        typeof parsed.watering === "string" ? parsed.watering : "",
-      temperature:
-        typeof parsed.temperature === "string"
-          ? parsed.temperature
-          : "",
-    };
-  } catch {
-    return null;
-  }
-}
 
 function Garden() {
   const { getToken } = useAuth();
@@ -305,7 +285,7 @@ function Garden() {
 
           <ul className="plant-list">
             {plants.map((p) => {
-              const care = readCareSummary(p.careSummary);
+              const facts = lookupPlantFacts(p.name, p.category);
 
               return (
                 <li key={p.id} className="plant-card">
@@ -382,24 +362,19 @@ function Garden() {
                       <div className="plant-notes">{p.notes}</div>
                     )}
 
-                    {care && (
-                      <div className="details">
-                        <h3>Quick care</h3>
-                        {care.overview && <p>{care.overview}</p>}
-                        {care.light && (
-                          <p><strong>Light:</strong> {care.light}</p>
-                        )}
-                        {care.watering && (
-                          <p><strong>Water:</strong> {care.watering}</p>
-                        )}
-                        {care.temperature && (
-                          <p>
-                            <strong>Temperature & humidity:</strong>{" "}
-                            {care.temperature}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <ul className="key-facts">
+                      <li>
+                        <span>Water:</span> every {p.wateringIntervalDays}{" "}
+                        {p.wateringIntervalDays === 1 ? "day" : "days"}
+                      </li>
+                      {facts && (
+                        <>
+                          <li><span>Light:</span> {facts.light}</li>
+                          <li><span>Humidity:</span> {facts.humidity}</li>
+                          <li><span>Temp:</span> {facts.temperature}</li>
+                        </>
+                      )}
+                    </ul>
 
                     <div className="actions">
                       <button
@@ -407,7 +382,7 @@ function Garden() {
                         type="button"
                         onClick={() => lookup(p)}
                       >
-                        {care ? "Refresh care info" : "Get care info"}
+                        Full guide
                       </button>
 
                       <button
