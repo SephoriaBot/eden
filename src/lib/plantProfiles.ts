@@ -238,3 +238,74 @@ export function lookupBuiltInProfile(name: string): BuiltInProfile | null {
     ? { category: best.category, wateringIntervalDays: best.days }
     : null;
 }
+
+// ---------------------------------------------------------------------------
+// Key facts shown on each plant card: light, humidity and temperature.
+// These are typical needs for the plant's category, with a few specific
+// plants overriding them. No AI involved.
+// ---------------------------------------------------------------------------
+
+export type PlantFacts = {
+  light: string;
+  humidity: string;
+  temperature: string;
+};
+
+const CATEGORY_FACTS: Record<string, PlantFacts> = {
+  foliage: { light: "Bright, indirect", humidity: "Average", temperature: "60-80\u00B0F" },
+  succulent: { light: "Bright, some direct sun", humidity: "Low", temperature: "60-80\u00B0F" },
+  cactus: { light: "Bright, direct sun", humidity: "Low", temperature: "60-85\u00B0F" },
+  fern: { light: "Medium, indirect", humidity: "High", temperature: "60-75\u00B0F" },
+  palm: { light: "Bright, indirect", humidity: "Average", temperature: "65-80\u00B0F" },
+  herb: { light: "Full sun, 6+ hours", humidity: "Average", temperature: "60-75\u00B0F" },
+  trailing: { light: "Medium to bright, indirect", humidity: "Average", temperature: "60-80\u00B0F" },
+  bulb: { light: "Bright, indirect", humidity: "Average", temperature: "60-70\u00B0F" },
+  tropical: { light: "Bright, indirect", humidity: "High", temperature: "65-85\u00B0F" },
+  flowering: { light: "Bright, indirect", humidity: "Average to high", temperature: "60-75\u00B0F" },
+};
+
+// Specific plants that differ from their category. The longest matching name wins.
+const FACT_OVERRIDES: Array<[names: string[], facts: Partial<PlantFacts>]> = [
+  [["snake plant", "sansevieria", "zz plant", "zamioculcas", "cast iron plant", "aspidistra"], { light: "Low to bright, indirect", humidity: "Low to average" }],
+  [["pothos", "epipremnum", "philodendron", "heartleaf philodendron"], { light: "Low to bright, indirect" }],
+  [["peace lily"], { light: "Low to medium, indirect", humidity: "High" }],
+  [["calathea", "prayer plant", "maranta", "rattlesnake plant"], { light: "Medium, indirect", humidity: "High" }],
+  [["orchid"], { light: "Bright, indirect", humidity: "Average to high", temperature: "60-80\u00B0F" }],
+  [["christmas cactus", "easter cactus", "holiday cactus"], { light: "Bright, indirect", humidity: "Average", temperature: "55-70\u00B0F" }],
+  [["ponytail palm"], { light: "Bright, some direct sun", humidity: "Low" }],
+  [["lavender", "rosemary", "thyme", "sage", "oregano"], { humidity: "Low" }],
+];
+
+type FactCandidate = { key: string; facts: Partial<PlantFacts> };
+
+const FACT_CANDIDATES: FactCandidate[] = FACT_OVERRIDES.flatMap(
+  ([names, facts]) => names.map((name) => ({ key: normalize(name), facts }))
+);
+
+// Light, humidity and temperature for a plant, or null if its category isn't known.
+export function lookupPlantFacts(
+  name: string,
+  category: string | null
+): PlantFacts | null {
+  const n = normalize(name);
+  let best: FactCandidate | null = null;
+
+  for (const c of FACT_CANDIDATES) {
+    const base = c.key.trim();
+    const hit =
+      n.includes(c.key) ||
+      n.includes(` ${base}s `) ||
+      n.includes(` ${base}es `);
+    if (hit && (!best || c.key.length > best.key.length)) best = c;
+  }
+
+  // Prefer the category Eden stored; fall back to the built-in list's category.
+  const builtIn = lookupBuiltInProfile(name);
+  const base =
+    (category && CATEGORY_FACTS[category]) ||
+    (builtIn && CATEGORY_FACTS[builtIn.category]) ||
+    null;
+
+  if (!base) return null;
+  return { ...base, ...(best?.facts ?? {}) };
+}
