@@ -280,7 +280,7 @@ function Garden() {
           )}
 
           {!loading && plants.length > 0 && (
-            <GardenSummary plantCount={plants.length} />
+            <GardenSummary plants={plants} />
           )}
 
           <ul className="plant-list">
