@@ -210,7 +210,7 @@ export default function CareDashboard({
           ) : (
             <small>
               {isCustom
-                ? "Your schedule"
+                ? "Your schedule recommends"
                 : plant.category === "unknown" || !plant.category
                 ? "Starting estimate"
                 : "Eden recommends"}{" "}
