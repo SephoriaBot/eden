@@ -1,0 +1,23 @@
+/* Key facts on each plant card */
+.key-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.key-facts li {
+  padding: 4px 10px;
+  color: var(--ink);
+  background: var(--mint-pale);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.key-facts li span {
+  color: var(--ink-soft);
+}
