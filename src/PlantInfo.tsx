@@ -7,6 +7,7 @@ import {
   type CareSummary,
   type GuideSection,
 } from "./api";
+import { BUILT_IN_FIXES } from "./lib/troubleshooting";
 import "./guide.css";
 
 const SYMPTOMS = [
@@ -50,9 +51,10 @@ function Body({ text }: { text: string }) {
   return <>{out}</>;
 }
 
-function Viewer({ title, sections }: {
+function Viewer({ title, sections, aiGenerated }: {
   title: string;
   sections: GuideSection[];
+  aiGenerated: boolean;
 }) {
   const [active, setActive] = useState(0);
 
@@ -81,7 +83,11 @@ function Viewer({ title, sections }: {
         <h4>{current.title}</h4>
         <Body text={current.body} />
       </div>
-      <p className="hint">AI-generated. Double-check important care decisions.</p>
+      <p className="hint">
+        {aiGenerated
+          ? "AI-generated. Double-check important care decisions."
+          : "General advice that applies to most plants. Check your plant's own needs too."}
+      </p>
     </div>
   );
 }
@@ -112,6 +118,7 @@ export default function PlantInfo({
   const [problem, setProblem] = useState("");
   const [sections, setSections] = useState<GuideSection[] | null>(null);
   const [shownTitle, setShownTitle] = useState("");
+  const [shownByAi, setShownByAi] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -122,8 +129,21 @@ export default function PlantInfo({
     plantId: string | null = null
   ) {
     const p = plantName.trim();
-    if (!p) return;
+    const builtIn =
+      kind === "fix" ? BUILT_IN_FIXES[problemText.trim()] : undefined;
 
+    // A ready-made answer needs no plant name and no AI.
+    if (!p && !builtIn) return;
+
+    if (builtIn) {
+      setError("");
+      setSections(builtIn);
+      setShownByAi(false);
+      setShownTitle(p ? `${p}: ${problemText.trim()}` : problemText.trim());
+      return;
+    }
+
+    setShownByAi(true);
     setBusy(true);
     setError("");
     setSections(null);
@@ -219,9 +239,13 @@ export default function PlantInfo({
               </button>
             ))}
           </div>
+          <p className="hint" style={{ marginTop: 0 }}>
+            Tap a common problem for an instant answer. Or describe something
+            else and the AI will take a look.
+          </p>
           <textarea
             className="field"
-            placeholder="Describe what's going on"
+            placeholder="Or describe what's going on"
             value={problem}
             maxLength={300}
             rows={3}
@@ -230,16 +254,24 @@ export default function PlantInfo({
           <button
             className="btn"
             onClick={() => run("fix", plant, problem)}
-            disabled={busy || !plant.trim() || !problem.trim()}
+            disabled={
+              busy ||
+              !problem.trim() ||
+              (!plant.trim() && !BUILT_IN_FIXES[problem.trim()])
+            }
           >
-            {busy ? "Checking..." : "Troubleshoot"}
+            {busy
+              ? "Checking..."
+              : BUILT_IN_FIXES[problem.trim()]
+              ? "Show fixes"
+              : "Ask AI"}
           </button>
         </>
       )}
 
       {error && <div className="error">{error}</div>}
       {sections && sections.length > 0 && (
-        <Viewer title={shownTitle} sections={sections} />
+        <Viewer title={shownTitle} sections={sections} aiGenerated={shownByAi} />
       )}
     </section>
   );
