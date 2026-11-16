@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { updatePlant, type Plant } from "./api";
@@ -17,25 +18,27 @@ function getInterval(plant: Plant): number {
   );
 }
 
+function startOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
 function getDueDate(plant: Plant): Date {
-  return new Date(
-    plant.lastWateredAt! +
-      getInterval(plant) * 24 * 60 * 60 * 1000
-  );
+  const due = startOfDay(new Date(plant.lastWateredAt!));
+  due.setDate(due.getDate() + getInterval(plant));
+  return due;
 }
 
 function getStatus(plant: Plant): Status {
   if (plant.lastWateredAt == null) return "unwatered";
 
   const due = getDueDate(plant);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const today = startOfDay(new Date());
 
   if (due.getTime() < today.getTime()) return "overdue";
-  if (due.getTime() < tomorrow.getTime()) return "today";
+  if (due.getTime() === today.getTime()) return "today";
+
   return "upcoming";
 }
 
@@ -138,7 +141,7 @@ export default function CareDashboard({
     const dueDate =
       plant.lastWateredAt != null ? getDueDate(plant) : null;
 
-    let statusText = "Not watered yet";
+    let statusText = "No watering recorded";
 
     if (status === "overdue" && dueDate) {
       statusText = `Overdue · Due ${formatDate(dueDate)}`;
@@ -210,7 +213,7 @@ export default function CareDashboard({
           ) : (
             <small>
               {isCustom
-                ? "Your schedule recommends"
+                ? "Custom schedule"
                 : plant.category === "unknown" || !plant.category
                 ? "Starting estimate"
                 : "Eden recommends"}{" "}
@@ -261,9 +264,8 @@ export default function CareDashboard({
       <div className="care-dashboard-heading">
         <div>
           <h2>Plant care</h2>
-          <p>Personalized starting points for your little garden.</p>
+          <p>Keep track of watering and individual care schedules.</p>
         </div>
-
       </div>
 
       <div className="care-counts">
@@ -289,8 +291,9 @@ export default function CareDashboard({
       {renderGroup("Upcoming", upcoming, "upcoming")}
 
       <p className="care-note">
-        These are estimates, not fixed rules. Check the soil before watering;
-        light, pot size, soil, and season all affect how quickly a plant dries.
+        Schedules are estimates, not fixed rules. Always check the soil
+        before watering. Light, pot size, soil, and season affect how
+        quickly each plant dries.
       </p>
     </section>
   );

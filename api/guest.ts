@@ -19,11 +19,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     await db.delete(plants).where(eq(plants.userId, userId));
-    try {
-      await db.run(sql`DELETE FROM growing_spaces WHERE user_id = ${userId}`);
-    } catch {
-      // The growing_spaces table may not exist yet; nothing to wipe then.
-    }
     return res.status(204).end();
   } catch {
     return res.status(500).json({ error: "Server error" });

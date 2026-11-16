@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   SignInButton,
@@ -17,10 +18,8 @@ import {
   type Plant,
 } from "./api";
 import PlantInfo from "./PlantInfo";
-import GardenSummary from "./GardenSummary";
 import CareDashboard from "./CareDashboard";
 import RemindersButton from "./RemindersButton";
-import GrowingSpacePlanner from "./GrowingSpacePlanner";
 import { lookupPlantFacts } from "./lib/plantProfiles";
 import "./keyfacts.css";
 
@@ -37,16 +36,13 @@ const VALID_CATEGORIES = [
   "tropical",
 ];
 
-type Tab = "garden" | "guide" | "care" | "spaces";
-
+type Tab = "garden" | "guide" | "care";
 
 const TABS = [
   { id: "garden", label: "My Garden", icon: "/mygarden.png" },
   { id: "guide", label: "Plant Guide", icon: "/plantguide.png" },
   { id: "care", label: "Care Schedule", icon: "/careschedule.png" },
-  { id: "spaces", label: "Growing Spaces", icon: "/growingspaces.png" },
 ] as const;
-
 
 function Garden() {
   const { getToken } = useAuth();
@@ -219,17 +215,6 @@ function Garden() {
         )
       )}
 
-      {activeTab === "spaces" && (
-        loading ? (
-          <p className="hint">Loading your garden...</p>
-        ) : (
-          <GrowingSpacePlanner
-            plants={plants}
-            onPlantUpdated={handlePlantUpdated}
-          />
-        )
-      )}
-
       {activeTab === "garden" && (
         <>
           <section className="card">
@@ -268,19 +253,15 @@ function Garden() {
             </form>
           </section>
 
-          <h2 className="section-title">My garden</h2>
+          <h2 className="section-title">My plants</h2>
 
-          {loading && <p className="hint">Loading your garden...</p>}
+          {loading && <p className="hint">Loading your plants...</p>}
 
           {!loading && plants.length === 0 && (
             <div className="card empty">
               <div className="plant-avatar av0 face-lg" />
               <p>Your garden is waiting. Add your first plant above.</p>
             </div>
-          )}
-
-          {!loading && plants.length > 0 && (
-            <GardenSummary plants={plants} />
           )}
 
           <ul className="plant-list">
@@ -408,7 +389,6 @@ export default function App() {
   const { isLoaded, isSignedIn } = useAuth();
   const [guest, setGuest] = useState<boolean>(() => !!getGuestToken());
 
-  // Once someone signs in, drop the demo id so it can never be used by mistake.
   useEffect(() => {
     if (isSignedIn) {
       forgetGuest();
@@ -428,12 +408,14 @@ export default function App() {
     <main className="app">
       <header className="header" style={{ flexWrap: "wrap", gap: 8 }}>
         <h1 className="brand">Eden</h1>
+
         {isSignedIn && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <RemindersButton />
             <UserButton />
           </div>
         )}
+
         {inDemo && (
           <div className="actions" style={{ marginTop: 0, alignItems: "center" }}>
             <span className="hint">Guest demo</span>
@@ -447,7 +429,7 @@ export default function App() {
         )}
       </header>
 
-      <p className="tagline">Your little garden journal and plant guide</p>
+      <p className="tagline">Your personal plant collection and care guide</p>
 
       {showWelcome && (
         <div className="card welcome">
