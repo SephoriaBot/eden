@@ -24,24 +24,16 @@ import { lookupPlantFacts } from "./lib/plantProfiles";
 import "./keyfacts.css";
 
 const VALID_CATEGORIES = [
-  "flowering",
-  "foliage",
-  "succulent",
-  "fern",
-  "palm",
-  "herb",
-  "trailing",
-  "cactus",
-  "bulb",
-  "tropical",
+  "flowering", "foliage", "succulent", "fern", "palm",
+  "herb", "trailing", "cactus", "bulb", "tropical",
 ];
 
 type Tab = "garden" | "guide" | "care";
 
 const TABS = [
   { id: "garden", label: "My Garden", icon: "/mygarden.png" },
-  { id: "guide", label: "Plant Guide", icon: "/plantguide.png" },
   { id: "care", label: "Care Schedule", icon: "/careschedule.png" },
+  { id: "guide", label: "Plant Guide", icon: "/plantguide.png" },
 ] as const;
 
 function Garden() {
@@ -49,11 +41,13 @@ function Garden() {
 
   const [activeTab, setActiveTab] = useState<Tab>("garden");
   const [plants, setPlants] = useState<Plant[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [prefill, setPrefill] = useState<{
     text: string;
     n: number;
@@ -63,9 +57,15 @@ function Garden() {
   const [editingName, setEditingName] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  const selectedPlant = plants.find((p) => p.id === selectedId) ?? plants[0] ?? null;
+
   const load = useCallback(async () => {
     try {
-      setPlants(await listPlants(getToken));
+      const result = await listPlants(getToken);
+      setPlants(result);
+      setSelectedId((current) => current && result.some((p) => p.id === current)
+        ? current
+        : result[0]?.id ?? null);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -90,9 +90,11 @@ function Garden() {
       });
 
       setPlants((prev) => [plant, ...prev]);
+      setSelectedId(plant.id);
       setName("");
       setLocation("");
       setNotes("");
+      setShowAddForm(false);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -112,9 +114,7 @@ function Garden() {
         name: editingName.trim(),
       });
 
-      setPlants((prev) =>
-        prev.map((p) => (p.id === id ? updated : p))
-      );
+      setPlants((prev) => prev.map((p) => p.id === id ? updated : p));
       setEditingId(null);
       setEditingName("");
       setError("");
@@ -125,27 +125,20 @@ function Garden() {
     }
   }
 
-  async function handleSaveCareSummary(
-    id: string,
-    summary: CareSummary
-  ) {
+  async function handleSaveCareSummary(id: string, summary: CareSummary) {
     try {
       const updated = await updatePlant(getToken, id, {
         careSummary: summary,
       });
 
-      setPlants((prev) =>
-        prev.map((p) => (p.id === id ? updated : p))
-      );
+      setPlants((prev) => prev.map((p) => p.id === id ? updated : p));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save care info");
     }
   }
 
   function handlePlantUpdated(updated: Plant) {
-    setPlants((prev) =>
-      prev.map((p) => (p.id === updated.id ? updated : p))
-    );
+    setPlants((prev) => prev.map((p) => p.id === updated.id ? updated : p));
   }
 
   async function handleDelete(id: string, plantName: string) {
@@ -153,7 +146,12 @@ function Garden() {
 
     try {
       await deletePlant(getToken, id);
-      setPlants((prev) => prev.filter((p) => p.id !== id));
+      setPlants((prev) => {
+        const remaining = prev.filter((p) => p.id !== id);
+        if (selectedId === id) setSelectedId(remaining[0]?.id ?? null);
+        return remaining;
+      });
+      setEditingId(null);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -183,9 +181,7 @@ function Garden() {
           <button
             key={tab.id}
             type="button"
-            className={
-              activeTab === tab.id ? "main-tab active" : "main-tab"
-            }
+            className={activeTab === tab.id ? "main-tab active" : "main-tab"}
             aria-current={activeTab === tab.id ? "page" : undefined}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -208,177 +204,189 @@ function Garden() {
         loading ? (
           <p className="hint">Loading your garden...</p>
         ) : (
-          <CareDashboard
-            plants={plants}
-            onPlantUpdated={handlePlantUpdated}
-          />
+          <CareDashboard plants={plants} onPlantUpdated={handlePlantUpdated} />
         )
       )}
 
       {activeTab === "garden" && (
         <>
-          <section className="card">
-            <h2>Add a plant</h2>
-
-            <form onSubmit={handleAdd}>
-              <input
-                className="field"
-                placeholder="Plant name"
-                value={name}
-                maxLength={80}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-
-              <input
-                className="field"
-                placeholder="Location (e.g. kitchen window)"
-                value={location}
-                maxLength={80}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-
-              <textarea
-                className="field"
-                placeholder="Notes"
-                value={notes}
-                maxLength={500}
-                rows={3}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-
-              <button className="btn" type="submit" disabled={!name.trim()}>
-                Add to my garden
-              </button>
-            </form>
+          <section className="garden-heading">
+            <div>
+              <h2>My plants</h2>
+              <p>{plants.length} {plants.length === 1 ? "plant" : "plants"} in your collection</p>
+            </div>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => setShowAddForm((current) => !current)}
+            >
+              {showAddForm ? "Cancel" : "+ Add plant"}
+            </button>
           </section>
 
-          <h2 className="section-title">My plants</h2>
+          {showAddForm && (
+            <section className="card garden-add-card">
+              <h2>Add a plant</h2>
+              <form onSubmit={handleAdd}>
+                <input
+                  className="field"
+                  placeholder="Plant name"
+                  value={name}
+                  maxLength={80}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+                <input
+                  className="field"
+                  placeholder="Location (e.g. kitchen window)"
+                  value={location}
+                  maxLength={80}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+                <textarea
+                  className="field"
+                  placeholder="Notes"
+                  value={notes}
+                  maxLength={500}
+                  rows={2}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+                <button className="btn" type="submit" disabled={!name.trim()}>
+                  Add to my garden
+                </button>
+              </form>
+            </section>
+          )}
 
           {loading && <p className="hint">Loading your plants...</p>}
 
           {!loading && plants.length === 0 && (
             <div className="card empty">
               <div className="plant-avatar av0 face-lg" />
-              <p>Your garden is waiting. Add your first plant above.</p>
+              <p>Your garden is waiting. Add your first plant to get started.</p>
+              <button className="btn" onClick={() => setShowAddForm(true)}>
+                Add your first plant
+              </button>
             </div>
           )}
 
-          <ul className="plant-list">
-            {plants.map((p) => {
-              const facts = lookupPlantFacts(p.name, p.category);
+          {!loading && plants.length > 0 && (
+            <>
+              <div className="plant-selector" aria-label="Choose a plant">
+                {plants.map((plant) => (
+                  <button
+                    key={plant.id}
+                    type="button"
+                    className={`plant-choice ${selectedPlant?.id === plant.id ? "selected" : ""}`}
+                    onClick={() => {
+                      setSelectedId(plant.id);
+                      setEditingId(null);
+                    }}
+                    aria-pressed={selectedPlant?.id === plant.id}
+                  >
+                    <span className={illustrationClass(plant)} aria-hidden="true" />
+                    <span className="plant-choice-name">{plant.name}</span>
+                  </button>
+                ))}
+              </div>
 
-              return (
-                <li key={p.id} className="plant-card">
-                  <div
-                    className={illustrationClass(p)}
-                    role="img"
-                    aria-label={
-                      p.category && VALID_CATEGORIES.includes(p.category)
-                        ? `${p.category} plant illustration`
-                        : "Plant illustration unavailable"
-                    }
-                  />
-
-                  <div className="plant-body">
-                    {editingId === p.id ? (
-                      <>
-                        <input
-                          className="field"
-                          aria-label="Correct plant name"
-                          placeholder="Correct plant name"
-                          value={editingName}
-                          maxLength={80}
-                          onChange={(e) => setEditingName(e.target.value)}
-                        />
-
-                        <div className="actions">
-                          <button
-                            className="btn-soft"
-                            type="button"
-                            onClick={() => handleSaveName(p.id)}
-                            disabled={
-                              savingId === p.id || !editingName.trim()
-                            }
-                          >
-                            {savingId === p.id ? "Saving..." : "Save name"}
-                          </button>
-
+              {selectedPlant && (
+                <section className="card featured-plant">
+                  <div className="featured-plant-top">
+                    <div className={illustrationClass(selectedPlant)} role="img" aria-label={`${selectedPlant.category || "Plant"} illustration`} />
+                    <div className="featured-plant-title">
+                      {editingId === selectedPlant.id ? (
+                        <>
+                          <input
+                            className="field"
+                            aria-label="Correct plant name"
+                            placeholder="Plant name"
+                            value={editingName}
+                            maxLength={80}
+                            onChange={(e) => setEditingName(e.target.value)}
+                          />
+                          <div className="actions">
+                            <button
+                              className="btn-soft"
+                              type="button"
+                              onClick={() => handleSaveName(selectedPlant.id)}
+                              disabled={savingId === selectedPlant.id || !editingName.trim()}
+                            >
+                              {savingId === selectedPlant.id ? "Saving..." : "Save"}
+                            </button>
+                            <button
+                              className="btn-soft"
+                              type="button"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditingName("");
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <h2>{selectedPlant.name}</h2>
+                          {selectedPlant.location && (
+                            <span className="badge">{selectedPlant.location}</span>
+                          )}
                           <button
                             className="btn-soft"
                             type="button"
                             onClick={() => {
-                              setEditingId(null);
-                              setEditingName("");
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="plant-name">{p.name}</div>
-
-                        <div className="actions">
-                          <button
-                            className="btn-soft"
-                            type="button"
-                            onClick={() => {
-                              setEditingId(p.id);
-                              setEditingName(p.name);
+                              setEditingId(selectedPlant.id);
+                              setEditingName(selectedPlant.name);
                             }}
                           >
                             Edit name
                           </button>
-                        </div>
-                      </>
-                    )}
-
-                    {p.location && (
-                      <span className="badge">{p.location}</span>
-                    )}
-
-                    {p.notes && (
-                      <div className="plant-notes">{p.notes}</div>
-                    )}
-
-                    <ul className="key-facts">
-                      <li>
-                        <span>Water:</span> every {p.wateringIntervalDays}{" "}
-                        {p.wateringIntervalDays === 1 ? "day" : "days"}
-                      </li>
-                      {facts && (
-                        <>
-                          <li><span>Light:</span> {facts.light}</li>
-                          <li><span>Humidity:</span> {facts.humidity}</li>
-                          <li><span>Temp:</span> {facts.temperature}</li>
                         </>
                       )}
-                    </ul>
-
-                    <div className="actions">
-                      <button
-                        className="btn-soft"
-                        type="button"
-                        onClick={() => lookup(p)}
-                      >
-                        Full guide
-                      </button>
-
-                      <button
-                        className="btn-soft btn-danger"
-                        type="button"
-                        onClick={() => handleDelete(p.id, p.name)}
-                      >
-                        Remove
-                      </button>
                     </div>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
+
+                  {selectedPlant.notes && (
+                    <p className="featured-plant-notes">{selectedPlant.notes}</p>
+                  )}
+
+                  <div className="featured-plant-facts">
+                    <div>
+                      <span>Watering</span>
+                      <strong>
+                        Every {selectedPlant.wateringIntervalDays ??
+                          selectedPlant.recommendedWateringIntervalDays ?? 7} days
+                      </strong>
+                    </div>
+                    {(() => {
+                      const facts = lookupPlantFacts(selectedPlant.name, selectedPlant.category);
+                      return facts ? (
+                        <>
+                          <div><span>Light</span><strong>{facts.light}</strong></div>
+                          <div><span>Humidity</span><strong>{facts.humidity}</strong></div>
+                          <div><span>Temperature</span><strong>{facts.temperature}</strong></div>
+                        </>
+                      ) : null;
+                    })()}
+                  </div>
+
+                  <div className="featured-plant-actions">
+                    <button className="btn" type="button" onClick={() => lookup(selectedPlant)}>
+                      View full guide
+                    </button>
+                    <button
+                      className="btn-soft"
+                      type="button"
+                      onClick={() => handleDelete(selectedPlant.id, selectedPlant.name)}
+                    >
+                      Remove plant
+                    </button>
+                  </div>
+                </section>
+              )}
+            </>
+          )}
         </>
       )}
     </>
@@ -451,9 +459,7 @@ export default function App() {
               Try the demo (no sign-in)
             </button>
           </div>
-          <p className="hint">
-            Guest data is wiped when you exit the demo.
-          </p>
+          <p className="hint">Guest data is wiped when you exit the demo.</p>
         </div>
       )}
 
